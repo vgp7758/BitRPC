@@ -1,0 +1,14 @@
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\BitMaskTest.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\BitMaskTest.AssemblyInfoInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\BitMaskTest.AssemblyInfo.cs
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\BitMaskTest.csproj.CoreCompileInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\bin\Debug\net6.0\BitMaskTest.exe
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\bin\Debug\net6.0\BitMaskTest.deps.json
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\bin\Debug\net6.0\BitMaskTest.runtimeconfig.json
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\bin\Debug\net6.0\BitMaskTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\bin\Debug\net6.0\BitMaskTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\BitMaskTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\refint\BitMaskTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\BitMaskTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\BitMaskTest.genruntimeconfig.cache
+D:\Projects\BitRPC\BitRPC\Tests\BitMaskTest\obj\Debug\net6.0\ref\BitMaskTest.dll

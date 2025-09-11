@@ -1,0 +1,4 @@
+D:\Projects\BitRPC\BitRPC\Tests\CSharpServer\obj\Release\net6.0\CSharpServer.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\BitRPC\BitRPC\Tests\CSharpServer\obj\Release\net6.0\CSharpServer.AssemblyInfoInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\CSharpServer\obj\Release\net6.0\CSharpServer.AssemblyInfo.cs
+D:\Projects\BitRPC\BitRPC\Tests\CSharpServer\obj\Release\net6.0\CSharpServer.csproj.CoreCompileInputs.cache

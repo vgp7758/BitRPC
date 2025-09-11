@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ServerTest.cs" />
+    <Compile Include="UserServiceImplementation.cs" />
+    <Compile Include="Generated\csharp\Example\Protocol\Data\*.cs" />
+    <Compile Include="Generated\csharp\Example\Protocol\Serialization\*.cs" />
+    <Compile Include="Generated\csharp\Example\Protocol\Factory\*.cs" />
+    <Compile Include="Generated\csharp\Example\Protocol\Server\*.cs" />
+    <Compile Include="Src\Client\RpcClient.cs" />
+    <Compile Include="Src\Server\RpcServer.cs" />
+    <Compile Include="Src\Serialization\BitMaskSerialization.cs" />
+  </ItemGroup>
+
+</Project>

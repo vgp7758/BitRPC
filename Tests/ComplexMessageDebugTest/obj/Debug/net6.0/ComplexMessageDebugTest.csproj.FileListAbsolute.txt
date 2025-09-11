@@ -1,0 +1,14 @@
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\bin\Debug\net6.0\ComplexMessageDebugTest.exe
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\bin\Debug\net6.0\ComplexMessageDebugTest.deps.json
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\bin\Debug\net6.0\ComplexMessageDebugTest.runtimeconfig.json
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\bin\Debug\net6.0\ComplexMessageDebugTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\bin\Debug\net6.0\ComplexMessageDebugTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ComplexMessageDebugTest.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ComplexMessageDebugTest.AssemblyInfoInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ComplexMessageDebugTest.AssemblyInfo.cs
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ComplexMessageDebugTest.csproj.CoreCompileInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ComplexMessageDebugTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\refint\ComplexMessageDebugTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ComplexMessageDebugTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ComplexMessageDebugTest.genruntimeconfig.cache
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageDebugTest\obj\Debug\net6.0\ref\ComplexMessageDebugTest.dll

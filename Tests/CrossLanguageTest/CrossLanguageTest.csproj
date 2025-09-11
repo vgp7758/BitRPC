@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Src\Parser\PDLParser.cs" />
+    <Compile Include="..\..\Src\Generator\CodeGeneratorCore.cs" />
+    <Compile Include="..\..\Src\Generator\CSharpCodeGenerator.cs" />
+    <Compile Include="..\..\Src\Generator\PythonCodeGenerator.cs" />
+    <Compile Include="..\..\Src\Generator\CppCodeGenerator.cs" />
+    <Compile Include="..\..\Src\Serialization\BitMaskSerialization.cs" />
+    <Compile Include="..\..\Src\Serialization\ObjectPool.cs" />
+    <Compile Include="..\..\Src\Client\RpcClient.cs" />
+    <Compile Include="..\..\Src\Server\RpcServer.cs" />
+    
+    <!-- Include generated code -->
+    <Compile Include="..\..\Generated\csharp\Example\Protocol\Data\*.cs" />
+    <Compile Include="..\..\Generated\csharp\Example\Protocol\Serialization\*.cs" />
+  </ItemGroup>
+
+</Project>

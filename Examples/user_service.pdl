@@ -1,0 +1,44 @@
+namespace Example.Protocol
+
+// User data structure
+message User {
+    int64 user_id = 1;
+    string username = 2;
+    string email = 3;
+    repeated string roles = 4;
+    bool is_active = 5;
+    DateTime created_at = 6;
+}
+
+// Login request
+message LoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+// Login response
+message LoginResponse {
+    bool success = 1;
+    User user = 2;
+    string token = 3;
+    string error_message = 4;
+}
+
+// Get user request
+message GetUserRequest {
+    int64 user_id = 1;
+}
+
+// Get user response
+message GetUserResponse {
+    User user = 1;
+    bool found = 2;
+}
+
+// User service definition
+service UserService {
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+
+option version = "1.0.0"

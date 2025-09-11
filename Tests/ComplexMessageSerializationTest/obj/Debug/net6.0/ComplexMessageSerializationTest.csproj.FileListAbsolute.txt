@@ -1,0 +1,14 @@
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ComplexMessageSerializationTest.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ComplexMessageSerializationTest.AssemblyInfoInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ComplexMessageSerializationTest.AssemblyInfo.cs
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ComplexMessageSerializationTest.csproj.CoreCompileInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\bin\Debug\net6.0\ComplexMessageSerializationTest.exe
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\bin\Debug\net6.0\ComplexMessageSerializationTest.deps.json
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\bin\Debug\net6.0\ComplexMessageSerializationTest.runtimeconfig.json
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\bin\Debug\net6.0\ComplexMessageSerializationTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\bin\Debug\net6.0\ComplexMessageSerializationTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ComplexMessageSerializationTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\refint\ComplexMessageSerializationTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ComplexMessageSerializationTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ComplexMessageSerializationTest.genruntimeconfig.cache
+D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net6.0\ref\ComplexMessageSerializationTest.dll

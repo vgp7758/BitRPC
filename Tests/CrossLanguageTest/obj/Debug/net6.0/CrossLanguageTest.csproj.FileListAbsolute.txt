@@ -1,0 +1,14 @@
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\CrossLanguageTest.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\CrossLanguageTest.AssemblyInfoInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\CrossLanguageTest.AssemblyInfo.cs
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\CrossLanguageTest.csproj.CoreCompileInputs.cache
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\bin\Debug\net6.0\CrossLanguageTest.exe
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\bin\Debug\net6.0\CrossLanguageTest.deps.json
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\bin\Debug\net6.0\CrossLanguageTest.runtimeconfig.json
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\bin\Debug\net6.0\CrossLanguageTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\bin\Debug\net6.0\CrossLanguageTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\CrossLanguageTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\refint\CrossLanguageTest.dll
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\CrossLanguageTest.pdb
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\CrossLanguageTest.genruntimeconfig.cache
+D:\Projects\BitRPC\BitRPC\Tests\CrossLanguageTest\obj\Debug\net6.0\ref\CrossLanguageTest.dll
