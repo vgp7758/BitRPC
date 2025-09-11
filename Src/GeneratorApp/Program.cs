@@ -1,11 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Newtonsoft.Json;
 using BitRPC.Protocol.Generator;
 using BitRPC.Protocol.Parser;
 
 namespace BitRPC.GeneratorApp
 {
+    public class LanguageConfig
+    {
+        public string Name { get; set; }
+        public bool Enabled { get; set; }
+        public string Namespace { get; set; }
+        public string RuntimePath { get; set; }
+    }
+
+    public class GeneratorConfig
+    {
+        public string ProtocolFile { get; set; }
+        public string OutputDirectory { get; set; }
+        public List<LanguageConfig> Languages { get; set; }
+    }
+
     class Program
     {
         static void Main(string[] args)
@@ -13,65 +29,65 @@ namespace BitRPC.GeneratorApp
             Console.WriteLine("BitRPC Protocol Generator");
             Console.WriteLine("===========================");
 
-            if (args.Length < 1)
+            string configPath = "generator-config.json";
+            if (args.Length > 0)
             {
-                Console.WriteLine("Usage: BitRPC.GeneratorApp <protocol-file> [output-directory]");
-                return;
+                configPath = args[0];
             }
 
-            var protocolFile = args[0];
-            var outputDir = args.Length > 1 ? args[1] : "Generated";
-
-            if (!File.Exists(protocolFile))
+            if (!File.Exists(configPath))
             {
-                Console.WriteLine($"Error: Protocol file '{protocolFile}' not found.");
+                Console.WriteLine($"Error: Config file '{configPath}' not found.");
                 return;
             }
 
             try
             {
+                var configContent = File.ReadAllText(configPath);
+                var config = JsonConvert.DeserializeObject<GeneratorConfig>(configContent);
+
+                if (!File.Exists(config.ProtocolFile))
+                {
+                    Console.WriteLine($"Error: Protocol file '{config.ProtocolFile}' not found.");
+                    return;
+                }
+
                 var generator = new ProtocolGenerator();
                 
-                var csharpOptions = new GenerationOptions
+                var optionsList = new List<GenerationOptions>();
+                
+                foreach (var lang in config.Languages)
                 {
-                    Language = TargetLanguage.CSharp,
-                    OutputDirectory = Path.Combine(outputDir, "csharp"),
-                    Namespace = "Example.Protocol",
-                    GenerateSerialization = true,
-                    GenerateClientServer = true,
-                    GenerateFactories = true
-                };
+                    if (lang.Enabled)
+                    {
+                        var options = new GenerationOptions
+                        {
+                            Language = (TargetLanguage)Enum.Parse(typeof(TargetLanguage), lang.Name, true),
+                            OutputDirectory = Path.Combine(config.OutputDirectory, lang.Name),
+                            Namespace = lang.Namespace,
+                            GenerateSerialization = true,
+                            GenerateClientServer = true,
+                            GenerateFactories = true
+                        };
+                        
+                        optionsList.Add(options);
+                    }
+                }
 
-                var pythonOptions = new GenerationOptions
+                generator.GenerateMultiple(config.ProtocolFile, optionsList);
+
+                Console.WriteLine($"Successfully generated code for '{config.ProtocolFile}'");
+                Console.WriteLine($"Output directory: {config.OutputDirectory}");
+                
+                var generatedLanguages = new List<string>();
+                foreach (var lang in config.Languages)
                 {
-                    Language = TargetLanguage.Python,
-                    OutputDirectory = Path.Combine(outputDir, "python"),
-                    Namespace = "example.protocol",
-                    GenerateSerialization = true,
-                    GenerateClientServer = true,
-                    GenerateFactories = true
-                };
-
-                var cppOptions = new GenerationOptions
-                {
-                    Language = TargetLanguage.Cpp,
-                    OutputDirectory = Path.Combine(outputDir, "cpp"),
-                    Namespace = "example.protocol",
-                    GenerateSerialization = true,
-                    GenerateClientServer = true,
-                    GenerateFactories = true
-                };
-
-                generator.GenerateMultiple(protocolFile, new List<GenerationOptions>
-                {
-                    csharpOptions,
-                    pythonOptions,
-                    cppOptions
-                });
-
-                Console.WriteLine($"Successfully generated code for '{protocolFile}'");
-                Console.WriteLine($"Output directory: {outputDir}");
-                Console.WriteLine("Generated languages: C#, Python, C++");
+                    if (lang.Enabled)
+                    {
+                        generatedLanguages.Add(lang.Name);
+                    }
+                }
+                Console.WriteLine($"Generated languages: {string.Join(", ", generatedLanguages)}");
             }
             catch (Exception ex)
             {

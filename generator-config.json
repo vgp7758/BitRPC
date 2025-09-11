@@ -1,0 +1,24 @@
+{
+  "protocolFile": "Examples/user_service.pdl",
+  "outputDirectory": "Generated",
+  "languages": [
+    {
+      "name": "csharp",
+      "enabled": true,
+      "namespace": "Example.Protocol",
+      "runtimePath": "Src"
+    },
+    {
+      "name": "python",
+      "enabled": true,
+      "namespace": "example.protocol",
+      "runtimePath": "Src/Python"
+    },
+    {
+      "name": "cpp",
+      "enabled": true,
+      "namespace": "example.protocol",
+      "runtimePath": "Src/C++Core"
+    }
+  ]
+}

@@ -5,6 +5,10 @@
 #include <memory>
 #include <vector>
 #include <cstdint>
+#include <unordered_map>
+#include <chrono>
+#include <typeinfo>
+#include <typeindex>
 
 namespace bitrpc {
 
@@ -128,6 +132,21 @@ public:
 private:
     void* socket_; // Platform-specific socket handle
     bool connected_;
+};
+
+// RPC Server interface
+class RpcServer {
+public:
+    virtual ~RpcServer() = default;
+    virtual void start(int port) = 0;
+    virtual void stop() = 0;
+};
+
+// Base service class
+class BaseService {
+public:
+    virtual ~BaseService() = default;
+    virtual void* call_method(const std::string& method_name, void* request) = 0;
 };
 
 // Template implementations

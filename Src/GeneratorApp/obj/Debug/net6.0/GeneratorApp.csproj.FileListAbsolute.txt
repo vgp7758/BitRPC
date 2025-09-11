@@ -12,3 +12,6 @@ D:\Projects\BitRPC\BitRPC\Src\GeneratorApp\obj\Debug\net6.0\refint\GeneratorApp.
 D:\Projects\BitRPC\BitRPC\Src\GeneratorApp\obj\Debug\net6.0\GeneratorApp.pdb
 D:\Projects\BitRPC\BitRPC\Src\GeneratorApp\obj\Debug\net6.0\GeneratorApp.genruntimeconfig.cache
 D:\Projects\BitRPC\BitRPC\Src\GeneratorApp\obj\Debug\net6.0\ref\GeneratorApp.dll
+D:\Projects\BitRPC\BitRPC\Src\GeneratorApp\bin\Debug\net6.0\Newtonsoft.Json.dll
+D:\Projects\BitRPC\BitRPC\Src\GeneratorApp\obj\Debug\net6.0\GeneratorApp.csproj.AssemblyReference.cache
+D:\Projects\BitRPC\BitRPC\Src\GeneratorApp\obj\Debug\net6.0\Generato.B07048EA.Up2Date

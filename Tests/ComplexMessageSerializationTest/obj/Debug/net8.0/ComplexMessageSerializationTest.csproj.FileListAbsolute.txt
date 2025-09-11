@@ -1,4 +1,0 @@
-D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net8.0\ComplexMessageSerializationTest.GeneratedMSBuildEditorConfig.editorconfig
-D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net8.0\ComplexMessageSerializationTest.AssemblyInfoInputs.cache
-D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net8.0\ComplexMessageSerializationTest.AssemblyInfo.cs
-D:\Projects\BitRPC\BitRPC\Tests\ComplexMessageSerializationTest\obj\Debug\net8.0\ComplexMessageSerializationTest.csproj.CoreCompileInputs.cache
