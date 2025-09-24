@@ -370,7 +370,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}_async(const {method.RequestType}& request);");
+                sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request);");
             }
 
             sb.AppendLine("};");
@@ -395,7 +395,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}Client::{method.Name}_async(const {method.RequestType}& request) {{");
+                sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}Client::{method.Name}Async(const {method.RequestType}& request) {{");
                 sb.AppendLine($"    return call_async<{method.RequestType}, {method.ResponseType}>(\"{service.Name}.{method.Name}\", request);");
                 sb.AppendLine("}");
                 sb.AppendLine();
@@ -446,7 +446,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}_async(const {method.RequestType}& request) = 0;");
+                sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) = 0;");
             }
 
             sb.AppendLine("};");
@@ -474,7 +474,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}_async(const {method.RequestType}& request) override;");
+                sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) override;");
             }
 
             sb.AppendLine();
@@ -483,7 +483,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}_async_impl(const {method.RequestType}& request) = 0;");
+                sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}Async_impl(const {method.RequestType}& request) = 0;");
             }
 
             sb.AppendLine("};");
@@ -511,7 +511,7 @@ namespace BitRPC.Protocol.Generator
             foreach (var method in service.Methods)
             {
                 sb.AppendLine($"    register_method(\"{method.Name}\", [this](const void* request) -> void* {{");
-                sb.AppendLine($"        auto result = {method.Name}_async_impl(*static_cast<const {method.RequestType}*>(request));");
+                sb.AppendLine($"        auto result = {method.Name}Async_impl(*static_cast<const {method.RequestType}*>(request));");
                 sb.AppendLine($"        return new {method.ResponseType}(result.get());");
                 sb.AppendLine("    });");
             }
@@ -521,8 +521,8 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}ServiceBase::{method.Name}_async(const {method.RequestType}& request) {{");
-                sb.AppendLine($"    return {method.Name}_async_impl(request);");
+                sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}ServiceBase::{method.Name}Async(const {method.RequestType}& request) {{");
+                sb.AppendLine($"    return {method.Name}Async_impl(request);");
                 sb.AppendLine("}");
                 sb.AppendLine();
             }
