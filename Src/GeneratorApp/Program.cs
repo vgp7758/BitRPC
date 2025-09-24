@@ -13,6 +13,7 @@ namespace BitRPC.GeneratorApp
         public bool Enabled { get; set; }
         public string Namespace { get; set; }
         public string RuntimePath { get; set; }
+        public Dictionary<string, object> SpecificOptions { get; set; } = new Dictionary<string, object>();
     }
 
     public class GeneratorConfig
@@ -67,7 +68,8 @@ namespace BitRPC.GeneratorApp
                             Namespace = lang.Namespace,
                             GenerateSerialization = true,
                             GenerateClientServer = true,
-                            GenerateFactories = true
+                            GenerateFactories = true,
+                            LanguageSpecificOptions = lang.SpecificOptions
                         };
                         
                         optionsList.Add(options);

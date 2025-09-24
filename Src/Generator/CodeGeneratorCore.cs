@@ -20,6 +20,13 @@ namespace BitRPC.Protocol.Generator
         public bool GenerateSerialization { get; set; } = true;
         public bool GenerateClientServer { get; set; } = true;
         public bool GenerateFactories { get; set; } = true;
+        public Dictionary<string, object> LanguageSpecificOptions { get; set; } = new Dictionary<string, object>();
+    }
+
+    public class PythonGenerationOptions : GenerationOptions
+    {
+        public bool UseRelativeImports { get; set; } = false;
+        public string ModelsImportPath { get; set; } = "data.models";
     }
 
     public interface ICodeGenerator

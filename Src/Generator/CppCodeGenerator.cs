@@ -184,7 +184,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
             sb.AppendLine($"int {message.Name}Serializer::hash_code() const {{");
-            sb.AppendLine($"    return static_cast<int>(std::hash<std::string>{{}}(\"{message.Name}\"));");
+            sb.AppendLine($"    return {HashCodeHelper.ComputeHashCode(message.Name)};");
             sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine($"void {message.Name}Serializer::write(const void* obj, StreamWriter& writer) const {{");
@@ -396,7 +396,7 @@ namespace BitRPC.Protocol.Generator
             foreach (var method in service.Methods)
             {
                 sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}Client::{method.Name}_async(const {method.RequestType}& request) {{");
-                sb.AppendLine($"    return call_async<{method.RequestType}, {method.ResponseType}>(\"{method.Name}\", request);");
+                sb.AppendLine($"    return call_async<{method.RequestType}, {method.ResponseType}>(\"{service.Name}.{method.Name}\", request);");
                 sb.AppendLine("}");
                 sb.AppendLine();
             }

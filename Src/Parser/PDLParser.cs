@@ -32,6 +32,8 @@ namespace BitRPC.Protocol.Parser
         public string Name { get; set; }
         public string RequestType { get; set; }
         public string ResponseType { get; set; }
+        // Indicates server streaming response (server sends multiple ResponseType items)
+        public bool ResponseStream { get; set; }
     }
 
     public class ProtocolService
@@ -197,14 +199,17 @@ namespace BitRPC.Protocol.Parser
 
         private ProtocolMethod ParseMethod(string line)
         {
-            var match = Regex.Match(line, @"rpc\s+(\w+)\s*\((\w+)\)\s+returns\s*\((\w+)\)");
+            // Support: rpc Method (Request) returns (Response)
+            // Server streaming: rpc Method (Request) returns (stream Response)
+            var match = Regex.Match(line, @"rpc\s+(\w+)\s*\((\w+)\)\s+returns\s*\((stream\s+)?(\w+)\)");
             if (match.Success)
             {
                 return new ProtocolMethod
                 {
                     Name = match.Groups[1].Value,
                     RequestType = match.Groups[2].Value,
-                    ResponseType = match.Groups[3].Value
+                    ResponseType = match.Groups[4].Value,
+                    ResponseStream = !string.IsNullOrEmpty(match.Groups[3].Value)
                 };
             }
             return null;

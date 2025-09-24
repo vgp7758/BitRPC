@@ -4,16 +4,20 @@ using System.IO;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using BitRPC.Serialization;
+using System.Collections.Concurrent;
 
 namespace BitRPC.Server
 {
     public abstract class BaseService
     {
         private readonly Dictionary<string, Func<object, object>> _methods;
+        private readonly Dictionary<string, Func<object, IAsyncEnumerable<object>>> _serverStreamMethods;
+        public abstract string ServiceName { get; }
 
         protected BaseService()
         {
             _methods = new Dictionary<string, Func<object, object>>();
+            _serverStreamMethods = new Dictionary<string, Func<object, IAsyncEnumerable<object>>>();
             RegisterMethods();
         }
 
@@ -29,6 +33,23 @@ namespace BitRPC.Server
             _methods[methodName] = request => method((TRequest)request).GetAwaiter().GetResult();
         }
 
+        protected void RegisterServerStreamMethod<TRequest, TResponse>(string methodName, Func<TRequest, IAsyncEnumerable<TResponse>> method)
+        {
+            // Fix for CS1621: Move yield return out of lambda, use a local function
+            _serverStreamMethods[methodName] = req => ServerStreamWrapper(method, (TRequest)req);
+        }
+
+        // Helper method to wrap the async enumerable and cast items to object
+        private async IAsyncEnumerable<object> ServerStreamWrapper<TRequest, TResponse>(Func<TRequest, IAsyncEnumerable<TResponse>> method, TRequest req)
+        {
+            await foreach (var item in method(req))
+            {
+                // Fix for CS8600/CS8603: Ensure item is not null before returning
+                if (item is not null)
+                    yield return item!;
+            }
+        }
+
         public object CallMethod(string methodName, object request)
         {
             if (_methods.TryGetValue(methodName, out var method))
@@ -38,9 +59,20 @@ namespace BitRPC.Server
             throw new InvalidOperationException($"Method '{methodName}' not found");
         }
 
+        public bool IsServerStream(string methodName) => _serverStreamMethods.ContainsKey(methodName);
+
+        public IAsyncEnumerable<object> CallServerStream(string methodName, object request)
+        {
+            if (_serverStreamMethods.TryGetValue(methodName, out var method))
+            {
+                return method(request);
+            }
+            throw new InvalidOperationException($"Streaming method '{methodName}' not found");
+        }
+
         public bool HasMethod(string methodName)
         {
-            return _methods.ContainsKey(methodName);
+            return _methods.ContainsKey(methodName) || _serverStreamMethods.ContainsKey(methodName);
         }
     }
 
@@ -59,9 +91,10 @@ namespace BitRPC.Server
             _clientTasks = new List<System.Threading.Tasks.Task>();
         }
 
-        public void RegisterService(string name, BaseService service)
+        public RpcServer RegisterService(BaseService service)
         {
-            _services[name] = service;
+            _services[service.ServiceName] = service;
+            return this;
         }
 
         public void Start()
@@ -98,19 +131,19 @@ namespace BitRPC.Server
                     while (client.Connected && _isRunning)
                     {
                         var lengthBytes = new byte[4];
-                        await stream.ReadAsync(lengthBytes, 0, 4);
+                        int read = await stream.ReadAsync(lengthBytes, 0, 4);
+                        if (read == 0) break; // connection closed
+                        if (read != 4) throw new IOException("Incomplete frame length");
                         var length = BitConverter.ToInt32(lengthBytes, 0);
-                        
                         var data = new byte[length];
-                        await stream.ReadAsync(data, 0, length);
-                        
-                        var response = ProcessRequest(data);
-                        
-                        var responseBytes = response;
-                        var responseLengthBytes = BitConverter.GetBytes(responseBytes.Length);
-                        await stream.WriteAsync(responseLengthBytes, 0, responseLengthBytes.Length);
-                        await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
-                        await stream.FlushAsync();
+                        int offset = 0;
+                        while (offset < length)
+                        {
+                            int r = await stream.ReadAsync(data, offset, length - offset);
+                            if (r <= 0) throw new IOException("Connection closed");
+                            offset += r;
+                        }
+                        await ProcessRequestAsync(data, stream);
                     }
                 }
             }
@@ -123,7 +156,7 @@ namespace BitRPC.Server
             }
         }
 
-        private byte[] ProcessRequest(byte[] data)
+        private async Task ProcessRequestAsync(byte[] data, NetworkStream stream)
         {
             try
             {
@@ -135,11 +168,36 @@ namespace BitRPC.Server
                 if (_services.TryGetValue(serviceName, out var service))
                 {
                     var request = reader.ReadObject();
-                    var response = service.CallMethod(operationName, request);
-                    
-                    var writer = new BitRPC.Serialization.StreamWriter();
-                    writer.WriteObject(response);
-                    return writer.ToArray();
+
+                    if (service.IsServerStream(operationName))
+                    {
+                        await foreach (var item in service.CallServerStream(operationName, request))
+                        {
+                            var writer = new BitRPC.Serialization.StreamWriter();
+                            writer.WriteObject(item);
+                            var frame = writer.ToArray();
+                            var lenBytes = BitConverter.GetBytes(frame.Length);
+                            await stream.WriteAsync(lenBytes, 0, 4);
+                            await stream.WriteAsync(frame, 0, frame.Length);
+                            await stream.FlushAsync();
+                        }
+                        // end marker
+                        await stream.WriteAsync(BitConverter.GetBytes(0), 0, 4);
+                        await stream.FlushAsync();
+                        return;
+                    }
+                    else
+                    {
+                        var response = service.CallMethod(operationName, request);
+                        var writer = new BitRPC.Serialization.StreamWriter();
+                        writer.WriteObject(response);
+                        var responseBytes = writer.ToArray();
+                        var responseLengthBytes = BitConverter.GetBytes(responseBytes.Length);
+                        await stream.WriteAsync(responseLengthBytes, 0, responseLengthBytes.Length);
+                        await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
+                        await stream.FlushAsync();
+                        return;
+                    }
                 }
 
                 throw new InvalidOperationException($"Service '{serviceName}' not found");
@@ -148,7 +206,11 @@ namespace BitRPC.Server
             {
                 var writer = new BitRPC.Serialization.StreamWriter();
                 writer.WriteObject(ex);
-                return writer.ToArray();
+                var responseBytes = writer.ToArray();
+                var responseLengthBytes = BitConverter.GetBytes(responseBytes.Length);
+                await stream.WriteAsync(responseLengthBytes, 0, responseLengthBytes.Length);
+                await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
+                await stream.FlushAsync();
             }
         }
 

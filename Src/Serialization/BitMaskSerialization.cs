@@ -103,34 +103,6 @@ namespace BitRPC.Serialization
         }
     }
 
-    public class BitMaskPool
-    {
-        private static readonly Queue<BitMask> _pool = new Queue<BitMask>();
-        private static readonly object _lock = new object();
-
-        public static BitMask Get(int size)
-        {
-            lock (_lock)
-            {
-                if (_pool.Count > 0)
-                {
-                    var mask = _pool.Dequeue();
-                    mask.Clear();
-                    return mask;
-                }
-                return new BitMask(size);
-            }
-        }
-
-        public static void Return(BitMask mask)
-        {
-            lock (_lock)
-            {
-                _pool.Enqueue(mask);
-            }
-        }
-    }
-
     public class StreamWriter
     {
         private readonly MemoryStream _stream;
@@ -391,7 +363,7 @@ namespace BitRPC.Serialization
 
     public class Int32Handler : ITypeHandler
     {
-        public int HashCode => typeof(int).GetHashCode();
+        public int HashCode => 101;
 
         public void Write(object obj, StreamWriter writer)
         {
@@ -406,7 +378,7 @@ namespace BitRPC.Serialization
 
     public class Int64Handler : ITypeHandler
     {
-        public int HashCode => typeof(long).GetHashCode();
+        public int HashCode => 102;
 
         public void Write(object obj, StreamWriter writer)
         {
@@ -421,7 +393,7 @@ namespace BitRPC.Serialization
 
     public class FloatHandler : ITypeHandler
     {
-        public int HashCode => typeof(float).GetHashCode();
+        public int HashCode => 103;
 
         public void Write(object obj, StreamWriter writer)
         {
@@ -436,7 +408,7 @@ namespace BitRPC.Serialization
 
     public class DoubleHandler : ITypeHandler
     {
-        public int HashCode => typeof(double).GetHashCode();
+        public int HashCode => 104;
 
         public void Write(object obj, StreamWriter writer)
         {
@@ -451,7 +423,7 @@ namespace BitRPC.Serialization
 
     public class BoolHandler : ITypeHandler
     {
-        public int HashCode => typeof(bool).GetHashCode();
+        public int HashCode => 105;
 
         public void Write(object obj, StreamWriter writer)
         {
@@ -466,7 +438,7 @@ namespace BitRPC.Serialization
 
     public class StringHandler : ITypeHandler
     {
-        public int HashCode => typeof(string).GetHashCode();
+        public int HashCode => 106;
 
         public void Write(object obj, StreamWriter writer)
         {
@@ -481,7 +453,7 @@ namespace BitRPC.Serialization
 
     public class BytesHandler : ITypeHandler
     {
-        public int HashCode => typeof(byte[]).GetHashCode();
+        public int HashCode => 107;
 
         public void Write(object obj, StreamWriter writer)
         {

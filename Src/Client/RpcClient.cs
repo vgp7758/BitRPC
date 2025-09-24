@@ -10,6 +10,7 @@ namespace BitRPC.Client
     public interface IRpcClient
     {
         Task<TResponse> CallAsync<TRequest, TResponse>(string method, TRequest request);
+        IAsyncEnumerable<TResponse> StreamAsync<TRequest, TResponse>(string method, TRequest request);
         Task ConnectAsync();
         Task DisconnectAsync();
         bool IsConnected { get; }
@@ -27,6 +28,11 @@ namespace BitRPC.Client
         protected async Task<TResponse> CallAsync<TRequest, TResponse>(string method, TRequest request)
         {
             return await _client.CallAsync<TRequest, TResponse>(method, request);
+        }
+
+        protected IAsyncEnumerable<TResponse> StreamAsync<TRequest, TResponse>(string method, TRequest request)
+        {
+            return _client.StreamAsync<TRequest, TResponse>(method, request);
         }
 
         public async Task ConnectAsync()
@@ -85,12 +91,9 @@ namespace BitRPC.Client
                 throw new InvalidOperationException("Client is not connected");
             }
 
-            var serializer = BitRPC.Serialization.BufferSerializer.Instance;
-            
             var writer = new BitRPC.Serialization.StreamWriter();
             writer.WriteString(method);
             writer.WriteObject(request);
-            
             var data = writer.ToArray();
             var requestLengthBytes = BitConverter.GetBytes(data.Length);
             await _stream.WriteAsync(requestLengthBytes, 0, requestLengthBytes.Length);
@@ -100,12 +103,46 @@ namespace BitRPC.Client
             var responseLengthBytes = new byte[4];
             await _stream.ReadAsync(responseLengthBytes, 0, 4);
             var length = BitConverter.ToInt32(responseLengthBytes, 0);
-            
             var responseData = new byte[length];
             await _stream.ReadAsync(responseData, 0, length);
-            
             var reader = new BitRPC.Serialization.StreamReader(responseData);
             return (TResponse)reader.ReadObject();
+        }
+
+        public async IAsyncEnumerable<TResponse> StreamAsync<TRequest, TResponse>(string method, TRequest request)
+        {
+            if (!IsConnected)
+            {
+                throw new InvalidOperationException("Client is not connected");
+            }
+
+            var writer = new BitRPC.Serialization.StreamWriter();
+            writer.WriteString(method);
+            writer.WriteObject(request);
+            var data = writer.ToArray();
+            var requestLengthBytes = BitConverter.GetBytes(data.Length);
+            await _stream.WriteAsync(requestLengthBytes, 0, requestLengthBytes.Length);
+            await _stream.WriteAsync(data, 0, data.Length);
+            await _stream.FlushAsync();
+
+            var lengthBytes = new byte[4];
+            while (true)
+            {
+                int read = await _stream.ReadAsync(lengthBytes, 0, 4);
+                if (read != 4) yield break; // connection closed
+                var frameLen = BitConverter.ToInt32(lengthBytes, 0);
+                if (frameLen == 0) yield break; // end of stream marker
+                var frame = new byte[frameLen];
+                int offset = 0;
+                while (offset < frameLen)
+                {
+                    var r = await _stream.ReadAsync(frame, offset, frameLen - offset);
+                    if (r <= 0) yield break;
+                    offset += r;
+                }
+                var reader = new BitRPC.Serialization.StreamReader(frame);
+                yield return (TResponse)reader.ReadObject();
+            }
         }
     }
 }

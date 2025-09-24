@@ -4,26 +4,14 @@ echo Generating C# code...
 REM Create a temporary config file for C# generation only
 (
 echo {
-echo   "protocolFile": "Examples/user_service.pdl",
-echo   "outputDirectory": "Generated",
+echo   "protocolFile": "Protocols/model_sync_service.pdl",
+echo   "outputDirectory": "../Assets/Scripts/Gen/Protocol",
 echo   "languages": [
 echo     {
 echo       "name": "csharp",
 echo       "enabled": true,
-echo       "namespace": "Example.Protocol",
+echo       "namespace": "BitRPC.Protocol",
 echo       "runtimePath": "Src"
-echo     },
-echo     {
-echo       "name": "python",
-echo       "enabled": false,
-echo       "namespace": "example.protocol",
-echo       "runtimePath": "Src/Python"
-echo     },
-echo     {
-echo       "name": "cpp",
-echo       "enabled": false,
-echo       "namespace": "example.protocol",
-echo       "runtimePath": "Src/C++Core"
 echo     }
 echo   ]
 echo }

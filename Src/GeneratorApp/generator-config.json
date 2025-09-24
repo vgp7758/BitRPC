@@ -1,0 +1,17 @@
+{
+  "ProtocolFile": "D:/Projects/076/hagc076_client/BitRPC/Protocols/scene3d.pdl",
+  "OutputDirectory": "D:/Projects/076/hagc076_client/BitRPC/Generated/python",
+  "Languages": [
+    {
+      "Name": "python",
+      "Enabled": true,
+      "Namespace": "bitrpc",
+      "RuntimePath": ".",
+      "SpecificOptions": {
+        "GenerateSerialization": true,
+        "GenerateClientServer": true,
+        "GenerateFactories": false
+      }
+    }
+  ]
+}

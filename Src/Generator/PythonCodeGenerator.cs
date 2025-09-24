@@ -116,14 +116,17 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{message.Name}_serializer.py", options));
             sb.AppendLine("from typing import Any");
             sb.AppendLine("from bitrpc.serialization import TypeHandler, BitMask, StreamWriter, StreamReader");
-            sb.AppendLine($"from ..data.models import {message.Name}");
+
+            // 根据配置决定导入方式
+            var importPath = GetModelsImportPath(options);
+            sb.AppendLine($"from {importPath} import {message.Name}");
             sb.AppendLine();
 
             sb.AppendLine($"class {message.Name}Serializer(TypeHandler):");
             sb.AppendLine();
             sb.AppendLine("    @property");
             sb.AppendLine($"    def hash_code(self) -> int:");
-            sb.AppendLine($"        return hash('{message.Name}')");
+            sb.AppendLine($"        return {HashCodeHelper.ComputeHashCode(message.Name)}");
             sb.AppendLine();
             sb.AppendLine($"    def write(self, obj: {message.Name}, writer: StreamWriter) -> None:");
             sb.AppendLine($"        message: {message.Name} = obj");
@@ -239,7 +242,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{service.Name}_client.py", options));
             sb.AppendLine("from typing import TypeVar, Generic");
             sb.AppendLine("from bitrpc.client import BaseClient");
-            sb.AppendLine($"from ..data.models import {string.Join(", ", service.Methods.Select(m => m.RequestType).Concat(service.Methods.Select(m => m.ResponseType)).Distinct())}");
+            var importPath = GetModelsImportPath(options);
+            sb.AppendLine($"from {importPath} import {string.Join(", ", service.Methods.Select(m => m.RequestType).Concat(service.Methods.Select(m => m.ResponseType)).Distinct())}");
             sb.AppendLine();
 
             sb.AppendLine($"class {service.Name}Client(BaseClient):");
@@ -253,7 +257,7 @@ namespace BitRPC.Protocol.Generator
             {
                 sb.AppendLine($"    async def {method.Name}_async(self, request: {method.RequestType}) -> {method.ResponseType}:");
                 sb.AppendLine($"        \"\"\"Call {method.Name} method\"\"\"");
-                sb.AppendLine($"        return await self.call_async(\"{method.Name}\", request)");
+                sb.AppendLine($"        return await self.call_async(\"{service.Name}.{method.Name}\", request)");
                 sb.AppendLine();
             }
 
@@ -483,6 +487,31 @@ namespace BitRPC.Protocol.Generator
                 FieldType.String => "reader.read_string()",
                 _ => "reader.read_object()"
             };
+        }
+
+        private string GetModelsImportPath(GenerationOptions options)
+        {
+            // 检查是否有Python特定的配置
+            if (options.LanguageSpecificOptions.TryGetValue("Python", out var pythonOptions))
+            {
+                if (pythonOptions is Dictionary<string, object> pythonDict)
+                {
+                    if (pythonDict.TryGetValue("UseRelativeImports", out var useRelativeImportsObj) &&
+                        useRelativeImportsObj is bool useRelativeImports && useRelativeImports)
+                    {
+                        return "..data.models";
+                    }
+
+                    if (pythonDict.TryGetValue("ModelsImportPath", out var modelsImportPathObj) &&
+                        modelsImportPathObj is string modelsImportPath)
+                    {
+                        return modelsImportPath;
+                    }
+                }
+            }
+
+            // 默认使用绝对导入
+            return "data.models";
         }
     }
 }

@@ -13,6 +13,7 @@
     <Compile Include="..\Generator\CSharpCodeGenerator.cs" />
     <Compile Include="..\Generator\PythonCodeGenerator.cs" />
     <Compile Include="..\Generator\CppCodeGenerator.cs" />
+    <Compile Include="..\Generator\HashCodeHelper.cs" />
     <Compile Include="..\Serialization\BitMaskSerialization.cs" />
     <Compile Include="..\Client\RpcClient.cs" />
     <Compile Include="..\Server\RpcServer.cs" />

@@ -36,6 +36,23 @@ namespace BitRPC.Protocol.Generator
             }
         }
 
+        // Stable 32-bit FNV-1a hash for type names (same across processes)
+        private static int ComputeStableHash(string text)
+        {
+            unchecked
+            {
+                const uint fnvOffset = 2166136261;
+                const uint fnvPrime = 16777619;
+                uint hash = fnvOffset;
+                foreach (var c in text)
+                {
+                    hash ^= c;
+                    hash *= fnvPrime;
+                }
+                return (int)hash;
+            }
+        }
+
         private void GenerateDataStructures(ProtocolDefinition definition, GenerationOptions options, string baseDir)
         {
             var dataDir = Path.Combine(baseDir, "Data");
@@ -64,7 +81,7 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine("{");
             }
 
-            sb.AppendLine($"    public class {message.Name}");
+            sb.AppendLine($"    public partial class {message.Name}");
             sb.AppendLine("    {");
 
             foreach (var field in message.Fields)
@@ -119,10 +136,12 @@ namespace BitRPC.Protocol.Generator
                                            .GroupBy(x => x.Index / 32)
                                            .ToList();
             
+            int stableHash = ComputeStableHash(message.Name); // pre-compute stable hash
             sb.AppendLine(GenerateFileHeader($"{message.Name}Serializer.cs", options));
             sb.AppendLine($"using System;");
             sb.AppendLine($"using System.IO;");
             sb.AppendLine($"using BitRPC.Serialization;");
+            sb.AppendLine("using System.Collections.Generic;");
             sb.AppendLine();
             
             if (!string.IsNullOrEmpty(options.Namespace))
@@ -133,7 +152,7 @@ namespace BitRPC.Protocol.Generator
 
             sb.AppendLine($"    public class {message.Name}Serializer : ITypeHandler");
             sb.AppendLine("    {");
-            sb.AppendLine($"        public int HashCode => typeof({message.Name}).GetHashCode();");
+            sb.AppendLine($"        public int HashCode => {stableHash};");
             sb.AppendLine();
             sb.AppendLine("        public void Write(object obj, BitRPC.Serialization.StreamWriter writer)");
             sb.AppendLine("        {");
@@ -325,6 +344,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{service.Name}Client.cs", options));
             sb.AppendLine("using System;");
             sb.AppendLine("using System.Threading.Tasks;");
+            sb.AppendLine("using System.Collections.Generic;");
             sb.AppendLine("using BitRPC.Client;");
             sb.AppendLine();
             
@@ -343,10 +363,23 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"        public async Task<{method.ResponseType}> {method.Name}Async({method.RequestType} request)");
-                sb.AppendLine("        {");
-                sb.AppendLine($"            return await CallAsync<{method.RequestType}, {method.ResponseType}>(\"{method.Name}\", request);");
-                sb.AppendLine("        }");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"        public async IAsyncEnumerable<{method.ResponseType}> {method.Name}StreamAsync({method.RequestType} request)");
+                    sb.AppendLine("        {");
+                    sb.AppendLine($"            await foreach (var item in StreamAsync<{method.RequestType}, {method.ResponseType}>(\"{service.Name}.{method.Name}\", request))");
+                    sb.AppendLine("            {");
+                    sb.AppendLine("                yield return item;");
+                    sb.AppendLine("            }");
+                    sb.AppendLine("        }");
+                }
+                else
+                {
+                    sb.AppendLine($"        public async Task<{method.ResponseType}> {method.Name}Async({method.RequestType} request)");
+                    sb.AppendLine("        {");
+                    sb.AppendLine($"            return await CallAsync<{method.RequestType}, {method.ResponseType}>(\"{service.Name}.{method.Name}\", request);");
+                    sb.AppendLine("        }");
+                }
             }
 
             sb.AppendLine("    }");
@@ -382,6 +415,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"I{service.Name}Service.cs", options));
             sb.AppendLine("using System;");
             sb.AppendLine("using System.Threading.Tasks;");
+            sb.AppendLine("using System.Collections.Generic;");
             sb.AppendLine();
             
             if (!string.IsNullOrEmpty(options.Namespace))
@@ -395,7 +429,14 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"        Task<{method.ResponseType}> {method.Name}Async({method.RequestType} request);");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"        IAsyncEnumerable<{method.ResponseType}> {method.Name}StreamAsync({method.RequestType} request);");
+                }
+                else
+                {
+                    sb.AppendLine($"        Task<{method.ResponseType}> {method.Name}Async({method.RequestType} request);");
+                }
             }
 
             sb.AppendLine("    }");
@@ -414,6 +455,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{service.Name}ServiceBase.cs", options));
             sb.AppendLine("using System;");
             sb.AppendLine("using System.Threading.Tasks;");
+            sb.AppendLine("using System.Collections.Generic;");
             sb.AppendLine("using BitRPC.Server;");
             sb.AppendLine();
             
@@ -425,10 +467,18 @@ namespace BitRPC.Protocol.Generator
 
             sb.AppendLine($"    public abstract class {service.Name}ServiceBase : BaseService, I{service.Name}Service");
             sb.AppendLine("    {");
+            sb.AppendLine($"        public override string ServiceName => \"{service.Name}\";");
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"        public abstract Task<{method.ResponseType}> {method.Name}Async({method.RequestType} request);");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"        public abstract IAsyncEnumerable<{method.ResponseType}> {method.Name}StreamAsync({method.RequestType} request);");
+                }
+                else
+                {
+                    sb.AppendLine($"        public abstract Task<{method.ResponseType}> {method.Name}Async({method.RequestType} request);");
+                }
             }
 
             sb.AppendLine();
@@ -437,7 +487,14 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"            RegisterMethod<{method.RequestType}, {method.ResponseType}>(\"{method.Name}\", {method.Name}Async);");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"            RegisterServerStreamMethod<{method.RequestType}, {method.ResponseType}>(\"{method.Name}\", {method.Name}StreamAsync);");
+                }
+                else
+                {
+                    sb.AppendLine($"            RegisterMethod<{method.RequestType}, {method.ResponseType}>(\"{method.Name}\", {method.Name}Async);");
+                }
             }
 
             sb.AppendLine("        }");
@@ -512,7 +569,7 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"List<{GetCSharpTypeNameForField(field)}>";
+                return $"List<{GetCSharpTypeNameForField(field)}>"; // incorrect placeholder removed later
             }
             return GetCSharpTypeNameForField(field);
         }
@@ -563,6 +620,10 @@ namespace BitRPC.Protocol.Generator
             {
                 return $"{field.CustomType}Serializer.Write({value}, writer)";
             }
+            if (field.Type == FieldType.Vector3)
+            {
+                return "Vector3Serializer.Write(" + value + ", writer)";
+            }
             return GenerateWriteValue(field.Type, value);
         }
 
@@ -595,6 +656,10 @@ namespace BitRPC.Protocol.Generator
             if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
             {
                 return $"{field.CustomType}Serializer.ReadStatic(reader)";
+            }
+            if (field.Type == FieldType.Vector3)
+            {
+                return "Vector3Serializer.ReadStatic(reader)";
             }
             return GenerateReadValue(field.Type);
         }
