@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Collections.Concurrent; // 新增
 
 namespace BitRPC.Serialization
 {
@@ -463,6 +464,37 @@ namespace BitRPC.Serialization
         public object Read(StreamReader reader)
         {
             return reader.ReadBytes();
+        }
+    }
+
+    public static class BitMaskPool
+    {
+        private static readonly ConcurrentBag<BitMask> _pool = new ConcurrentBag<BitMask>();
+
+        public static BitMask Get(int size)
+        {
+            if (_pool.TryTake(out var mask))
+            {
+                // 如果池中对象容量不足则重新创建
+                if (mask.Size < size)
+                {
+                    mask = new BitMask(size);
+                }
+                else
+                {
+                    mask.Clear();
+                }
+                return mask;
+            }
+            return new BitMask(size);
+        }
+
+        public static void Return(BitMask mask)
+        {
+            if (mask != null)
+            {
+                _pool.Add(mask);
+            }
         }
     }
 }

@@ -1,3 +1,7 @@
 */.vs
 */.suo
 */.vs/
+/.vs/
+/Src/GeneratorApp/bin
+/Src/GeneratorApp/obj
+/Src/GeneratorApp/.vs
