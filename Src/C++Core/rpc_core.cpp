@@ -27,11 +27,17 @@ namespace bitrpc {
 // BufferSerializer implementation
 BufferSerializer& BufferSerializer::instance() {
     static BufferSerializer instance;
+    static bool initialized = false;
+    if (!initialized) {
+        instance.init_handlers();
+        initialized = true;
+    }
     return instance;
 }
 
 void BufferSerializer::register_handler_impl(size_t type_hash, std::shared_ptr<TypeHandler> handler) {
     handlers_[type_hash] = handler;
+    handlers_by_hash_code_[handler->hash_code()] = handler;
 }
 
 TypeHandler* BufferSerializer::get_handler(size_t type_hash) const {
@@ -39,8 +45,28 @@ TypeHandler* BufferSerializer::get_handler(size_t type_hash) const {
     return it != handlers_.end() ? it->second.get() : nullptr;
 }
 
+TypeHandler* BufferSerializer::get_handler_by_hash_code(int hash_code) const {
+    auto it = handlers_by_hash_code_.find(hash_code);
+    return it != handlers_by_hash_code_.end() ? it->second.get() : nullptr;
+}
+
+void BufferSerializer::init_handlers() {
+    register_handler<int32_t>(std::make_shared<Int32Handler>());
+    register_handler<int64_t>(std::make_shared<Int64Handler>());
+    register_handler<float>(std::make_shared<FloatHandler>());
+    register_handler<double>(std::make_shared<DoubleHandler>());
+    register_handler<bool>(std::make_shared<BoolHandler>());
+    register_handler<std::string>(std::make_shared<StringHandler>());
+    register_handler<std::vector<uint8_t>>(std::make_shared<BytesHandler>());
+}
+
 // BitMask implementation
+BitMask::BitMask() : masks_(1, 0) {}
 BitMask::BitMask(int size) : masks_(size, 0) {}
+
+void BitMask::clear() {
+    std::fill(masks_.begin(), masks_.end(), 0);
+}
 
 void BitMask::set_bit(int index, bool value) {
     int mask_index = index / 32;
@@ -244,17 +270,12 @@ void* StreamReader::read_object() {
 
 // TcpRpcClient implementation
 TcpRpcClient::TcpRpcClient() : socket_(INVALID_SOCKET), connected_(false) {
-#ifdef _WIN32
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-#endif
+    initialize_network();
 }
 
 TcpRpcClient::~TcpRpcClient() {
     disconnect();
-#ifdef _WIN32
-    WSACleanup();
-#endif
+    cleanup_network();
 }
 
 void TcpRpcClient::connect(const std::string& host, int port) {
@@ -343,6 +364,298 @@ std::vector<uint8_t> TcpRpcClient::call(const std::string& method, const std::ve
     }
     
     return response;
+}
+
+// TypeHandler implementations
+void Int32Handler::write(const void* obj, StreamWriter& writer) const {
+    writer.write_int32(*static_cast<const int32_t*>(obj));
+}
+
+void* Int32Handler::read(StreamReader& reader) const {
+    int32_t* value = new int32_t();
+    *value = reader.read_int32();
+    return value;
+}
+
+void Int64Handler::write(const void* obj, StreamWriter& writer) const {
+    writer.write_int64(*static_cast<const int64_t*>(obj));
+}
+
+void* Int64Handler::read(StreamReader& reader) const {
+    int64_t* value = new int64_t();
+    *value = reader.read_int64();
+    return value;
+}
+
+void FloatHandler::write(const void* obj, StreamWriter& writer) const {
+    writer.write_float(*static_cast<const float*>(obj));
+}
+
+void* FloatHandler::read(StreamReader& reader) const {
+    float* value = new float();
+    *value = reader.read_float();
+    return value;
+}
+
+void DoubleHandler::write(const void* obj, StreamWriter& writer) const {
+    writer.write_double(*static_cast<const double*>(obj));
+}
+
+void* DoubleHandler::read(StreamReader& reader) const {
+    double* value = new double();
+    *value = reader.read_double();
+    return value;
+}
+
+void BoolHandler::write(const void* obj, StreamWriter& writer) const {
+    writer.write_bool(*static_cast<const bool*>(obj));
+}
+
+void* BoolHandler::read(StreamReader& reader) const {
+    bool* value = new bool();
+    *value = reader.read_bool();
+    return value;
+}
+
+void StringHandler::write(const void* obj, StreamWriter& writer) const {
+    const std::string* str = static_cast<const std::string*>(obj);
+    writer.write_string(*str);
+}
+
+void* StringHandler::read(StreamReader& reader) const {
+    std::string* str = new std::string();
+    *str = reader.read_string();
+    return str;
+}
+
+void BytesHandler::write(const void* obj, StreamWriter& writer) const {
+    const std::vector<uint8_t>* bytes = static_cast<const std::vector<uint8_t>*>(obj);
+    writer.write_bytes(*bytes);
+}
+
+void* BytesHandler::read(StreamReader& reader) const {
+    std::vector<uint8_t>* bytes = new std::vector<uint8_t>();
+    *bytes = reader.read_bytes();
+    return bytes;
+}
+
+// ServiceBase implementation
+ServiceBase::ServiceBase(const std::string& name) : name_(name) {}
+
+bool ServiceBase::has_method(const std::string& method_name) const {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    return methods_.find(method_name) != methods_.end();
+}
+
+void* ServiceBase::call_method(const std::string& method_name, void* request) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    auto it = methods_.find(method_name);
+    if (it != methods_.end()) {
+        return it->second(request);
+    }
+    throw std::runtime_error("Method '" + method_name + "' not found");
+}
+
+// TcpRpcServer implementation
+TcpRpcServer::TcpRpcServer() : server_socket_(INVALID_SOCKET), is_running_(false) {
+    initialize_network();
+}
+
+TcpRpcServer::~TcpRpcServer() {
+    stop();
+    cleanup_network();
+}
+
+void TcpRpcServer::register_service(std::shared_ptr<BaseService> service) {
+    std::lock_guard<std::mutex> lock(services_mutex_);
+    services_[service->service_name()] = service;
+}
+
+void TcpRpcServer::start(int port) {
+    if (is_running_) {
+        return;
+    }
+
+    server_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (server_socket_ == INVALID_SOCKET) {
+        throw std::runtime_error("Failed to create server socket");
+    }
+
+    int opt = 1;
+    setsockopt(server_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&opt), sizeof(opt));
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(port);
+
+    if (bind(server_socket_, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) == SOCKET_ERROR) {
+        closesocket(server_socket_);
+        server_socket_ = INVALID_SOCKET;
+        throw std::runtime_error("Failed to bind server socket");
+    }
+
+    if (listen(server_socket_, SOMAXCONN) == SOCKET_ERROR) {
+        closesocket(server_socket_);
+        server_socket_ = INVALID_SOCKET;
+        throw std::runtime_error("Failed to listen on server socket");
+    }
+
+    is_running_ = true;
+
+    // Start accepting connections in a separate thread
+    std::thread([this, port]() {
+        std::cout << "Server started on port " << port << std::endl;
+        while (is_running_) {
+            sockaddr_in client_addr{};
+            socklen_t client_len = sizeof(client_addr);
+
+            SOCKET client_socket = accept(server_socket_, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
+            if (client_socket == INVALID_SOCKET) {
+                if (is_running_) {
+                    std::cerr << "Failed to accept client connection" << std::endl;
+                }
+                continue;
+            }
+
+            // Handle client in a separate thread
+            client_threads_.emplace_back([this, client_socket]() {
+                handle_client(reinterpret_cast<void*>(client_socket));
+            });
+        }
+    }).detach();
+}
+
+void TcpRpcServer::stop() {
+    if (!is_running_) {
+        return;
+    }
+
+    is_running_ = false;
+
+    if (server_socket_ != INVALID_SOCKET) {
+        closesocket(server_socket_);
+        server_socket_ = INVALID_SOCKET;
+    }
+
+    // Wait for all client threads to finish
+    for (auto& thread : client_threads_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+    client_threads_.clear();
+}
+
+void TcpRpcServer::handle_client(void* client_socket) {
+    SOCKET sock = reinterpret_cast<SOCKET>(client_socket);
+
+    try {
+        while (is_running_) {
+            // Read request length
+            uint32_t length;
+            int bytes_read = recv(sock, reinterpret_cast<char*>(&length), sizeof(length), 0);
+            if (bytes_read != sizeof(length)) {
+                break; // Connection closed or error
+            }
+
+            // Read request data
+            std::vector<uint8_t> request_data(length);
+            size_t total_read = 0;
+            while (total_read < length) {
+                bytes_read = recv(sock, reinterpret_cast<char*>(request_data.data() + total_read),
+                                 length - total_read, 0);
+                if (bytes_read <= 0) {
+                    break;
+                }
+                total_read += bytes_read;
+            }
+
+            if (total_read != length) {
+                break;
+            }
+
+            // Process request
+            StreamReader reader(request_data);
+            std::string method_name = reader.read_string();
+            auto request = reader.read_bytes();
+
+            // Parse method name
+            auto [service_name, operation_name] = parse_method_name(method_name);
+
+            // Find service
+            std::shared_ptr<BaseService> service;
+            {
+                std::lock_guard<std::mutex> lock(services_mutex_);
+                auto it = services_.find(service_name);
+                if (it != services_.end()) {
+                    service = it->second;
+                }
+            }
+
+            StreamWriter response_writer;
+
+            if (service && service->has_method(operation_name)) {
+                try {
+                    // Call method (simplified - in real implementation you'd need proper deserialization)
+                    auto response = service->call_method(operation_name, &request);
+                    response_writer.write_bytes(std::vector<uint8_t>{1}); // Success indicator
+                    // In real implementation, serialize and write the actual response
+                } catch (const std::exception& e) {
+                    response_writer.write_bytes(std::vector<uint8_t>{0}); // Error indicator
+                    response_writer.write_string(e.what());
+                }
+            } else {
+                response_writer.write_bytes(std::vector<uint8_t>{0}); // Error indicator
+                response_writer.write_string("Service or method not found");
+            }
+
+            // Send response
+            auto response_data = response_writer.to_array();
+            uint32_t response_length = static_cast<uint32_t>(response_data.size());
+
+            send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
+            send(sock, reinterpret_cast<const char*>(response_data.data()), response_data.size(), 0);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error handling client: " << e.what() << std::endl;
+    }
+
+    closesocket(sock);
+}
+
+std::pair<std::string, std::string> TcpRpcServer::parse_method_name(const std::string& method) {
+    size_t dot_pos = method.find('.');
+    if (dot_pos != std::string::npos) {
+        return {method.substr(0, dot_pos), method.substr(dot_pos + 1)};
+    }
+    return {method, ""};
+}
+
+void TcpRpcServer::initialize_network() {
+#ifdef _WIN32
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+}
+
+void TcpRpcServer::cleanup_network() {
+#ifdef _WIN32
+    WSACleanup();
+#endif
+}
+
+void TcpRpcClient::initialize_network() {
+#ifdef _WIN32
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+}
+
+void TcpRpcClient::cleanup_network() {
+#ifdef _WIN32
+    WSACleanup();
+#endif
 }
 
 } // namespace bitrpc
