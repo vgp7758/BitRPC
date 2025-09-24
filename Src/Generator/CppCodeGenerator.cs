@@ -148,7 +148,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{message.Name}_serializer.h", options));
             sb.AppendLine("#pragma once");
             sb.AppendLine();
-            sb.AppendLine("#include <bitrpc/serialization/type_handler.h>");
+            var runtimeInclude = GetRuntimeInclude(options);
+            sb.AppendLine($"#include <{runtimeInclude}/serialization/type_handler.h>");
             sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/models.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -306,7 +307,8 @@ namespace BitRPC.Protocol.Generator
         {
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader("serializer_registry.cpp", options));
-            sb.AppendLine("#include <bitrpc/serialization/buffer_serializer.h>");
+            var runtimeInclude = GetRuntimeInclude(options);
+            sb.AppendLine($"#include <{runtimeInclude}/serialization/buffer_serializer.h>");
             sb.AppendLine();
 
             foreach (var message in definition.Messages)
@@ -357,7 +359,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{service.Name}_client.h", options));
             sb.AppendLine("#pragma once");
             sb.AppendLine();
-            sb.AppendLine("#include <bitrpc/client/base_client.h>");
+            var runtimeInclude = GetRuntimeInclude(options);
+            sb.AppendLine($"#include <{runtimeInclude}/client/base_client.h>");
             sb.AppendLine("#include <future>");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -462,7 +465,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{service.Name}_service_base.h", options));
             sb.AppendLine("#pragma once");
             sb.AppendLine();
-            sb.AppendLine("#include <bitrpc/server/base_service.h>");
+            var runtimeInclude = GetRuntimeInclude(options);
+            sb.AppendLine($"#include <{runtimeInclude}/server/base_service.h>");
             sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/i{service.Name.ToLower()}_service.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -576,6 +580,11 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("set(CMAKE_CXX_STANDARD_REQUIRED ON)");
             sb.AppendLine();
             sb.AppendLine("include_directories(include)");
+            var runtimeIncludeDir = GetRuntimeIncludeDirOption(options);
+            if (!string.IsNullOrWhiteSpace(runtimeIncludeDir))
+            {
+                sb.AppendLine($"include_directories(\"${{CMAKE_CURRENT_LIST_DIR}}/{runtimeIncludeDir}\")");
+            }
             sb.AppendLine();
             sb.AppendLine("set(SOURCES");
             sb.AppendLine("    src/models.cpp");
@@ -613,7 +622,7 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"std::vector<{GetCppTypeNameForField(field)}>";
+                return $"std::vector<{GetCppTypeNameForField(field)}>`".Replace("`", string.Empty);
             }
 
             return GetCppTypeNameForField(field);
@@ -720,6 +729,35 @@ namespace BitRPC.Protocol.Generator
                 FieldType.String => "reader.read_string()",
                 _ => "reader.read_object()"
             };
+        }
+
+        private string GetRuntimeInclude(GenerationOptions options)
+        {
+            // returns include prefix used in #include <...> e.g. "bitrpc" or "runtime/bitrpc"
+            if (options.LanguageSpecificOptions.TryGetValue("Cpp", out var cppOptions) &&
+                cppOptions is Dictionary<string, object> cppDict)
+            {
+                if (cppDict.TryGetValue("RuntimeIncludePrefix", out var prefixObj) && prefixObj is string prefix && !string.IsNullOrWhiteSpace(prefix))
+                {
+                    return prefix;
+                }
+            }
+
+            // default to external installation name
+            return "bitrpc";
+        }
+
+        private string GetRuntimeIncludeDirOption(GenerationOptions options)
+        {
+            if (options.LanguageSpecificOptions.TryGetValue("Cpp", out var cppOptions) &&
+                cppOptions is Dictionary<string, object> cppDict)
+            {
+                if (cppDict.TryGetValue("RuntimeIncludeDir", out var dirObj) && dirObj is string dir && !string.IsNullOrWhiteSpace(dir))
+                {
+                    return dir;
+                }
+            }
+            return string.Empty;
         }
     }
 }

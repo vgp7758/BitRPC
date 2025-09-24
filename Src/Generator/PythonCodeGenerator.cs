@@ -112,10 +112,11 @@ namespace BitRPC.Protocol.Generator
 
         private string GenerateMessageSerializer(ProtocolMessage message, GenerationOptions options)
         {
+            var runtimeBase = GetRuntimeImportBase(options);
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{message.Name}_serializer.py", options));
             sb.AppendLine("from typing import Any");
-            sb.AppendLine("from bitrpc.serialization import TypeHandler, BitMask, StreamWriter, StreamReader");
+            sb.AppendLine($"from {runtimeBase}.serialization import TypeHandler, BitMask, StreamWriter, StreamReader");
 
             // 根据配置决定导入方式
             var importPath = GetModelsImportPath(options);
@@ -200,10 +201,11 @@ namespace BitRPC.Protocol.Generator
 
         private void GenerateSerializerRegistry(ProtocolDefinition definition, GenerationOptions options, string serializationDir)
         {
+            var runtimeBase = GetRuntimeImportBase(options);
             var filePath = Path.Combine(serializationDir, "registry.py");
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader("registry.py", options));
-            sb.AppendLine("from bitrpc.serialization import BufferSerializer");
+            sb.AppendLine($"from {runtimeBase}.serialization import BufferSerializer");
             sb.AppendLine();
 
             foreach (var message in definition.Messages)
@@ -238,10 +240,11 @@ namespace BitRPC.Protocol.Generator
 
         private string GenerateServiceClient(ProtocolService service, GenerationOptions options)
         {
+            var runtimeBase = GetRuntimeImportBase(options);
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{service.Name}_client.py", options));
             sb.AppendLine("from typing import TypeVar, Generic");
-            sb.AppendLine("from bitrpc.client import BaseClient");
+            sb.AppendLine($"from {runtimeBase}.client import BaseClient");
             var importPath = GetModelsImportPath(options);
             sb.AppendLine($"from {importPath} import {string.Join(", ", service.Methods.Select(m => m.RequestType).Concat(service.Methods.Select(m => m.ResponseType)).Distinct())}");
             sb.AppendLine();
@@ -307,9 +310,10 @@ namespace BitRPC.Protocol.Generator
 
         private string GenerateServiceBase(ProtocolService service, GenerationOptions options)
         {
+            var runtimeBase = GetRuntimeImportBase(options);
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{service.Name}_service_base.py", options));
-            sb.AppendLine("from bitrpc.server import BaseService");
+            sb.AppendLine($"from {runtimeBase}.server import BaseService");
             sb.AppendLine($"from .i{service.Name.ToLower()}_service import I{service.Name}Service");
             sb.AppendLine();
 
@@ -349,9 +353,10 @@ namespace BitRPC.Protocol.Generator
 
         private string GenerateProtocolFactory(ProtocolDefinition definition, GenerationOptions options)
         {
+            var runtimeBase = GetRuntimeImportBase(options);
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader("protocol_factory.py", options));
-            sb.AppendLine("from bitrpc.serialization import BufferSerializer");
+            sb.AppendLine($"from {runtimeBase}.serialization import BufferSerializer");
             sb.AppendLine("from .serialization.registry import register_serializers");
             sb.AppendLine();
 
@@ -512,6 +517,30 @@ namespace BitRPC.Protocol.Generator
 
             // 默认使用绝对导入
             return "data.models";
+        }
+
+        private string GetRuntimeImportBase(GenerationOptions options)
+        {
+            // Default absolute import base when runtime is external
+            var defaultBase = "bitrpc";
+
+            if (options.LanguageSpecificOptions.TryGetValue("Python", out var pythonOptions) &&
+                pythonOptions is Dictionary<string, object> pythonDict)
+            {
+                if (pythonDict.TryGetValue("RuntimeImportBase", out var baseObj) && baseObj is string baseStr && !string.IsNullOrWhiteSpace(baseStr))
+                {
+                    return baseStr;
+                }
+
+                if (pythonDict.TryGetValue("UseRelativeImports", out var useRelativeImportsObj) &&
+                    useRelativeImportsObj is bool useRelative && useRelative)
+                {
+                    // Fall back to relative runtime path under the package
+                    return ".runtime.bitrpc";
+                }
+            }
+
+            return defaultBase;
         }
     }
 }
