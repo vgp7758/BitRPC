@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <bitrpc/serialization/type_handler.h>
+#include <bitrpc/serialization.h>
 #include "example::protocol/models.h"
 
 namespace bitrpc {

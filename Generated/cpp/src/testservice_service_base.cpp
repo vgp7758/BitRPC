@@ -12,17 +12,14 @@ TestServiceServiceBase::TestServiceServiceBase() {
 }
 
 void {service.Name}ServiceBase::register_methods() {
-    register_method("Login", [this](const void* request) -> void* {
-        auto result = LoginAsync_impl(*static_cast<const LoginRequest*>(request));
-        return new LoginResponse(result.get());
+    register_async_method("Login", [this](const LoginRequest& request) {
+        return LoginAsync_impl(request);
     });
-    register_method("GetUser", [this](const void* request) -> void* {
-        auto result = GetUserAsync_impl(*static_cast<const GetUserRequest*>(request));
-        return new GetUserResponse(result.get());
+    register_async_method("GetUser", [this](const GetUserRequest& request) {
+        return GetUserAsync_impl(request);
     });
-    register_method("Echo", [this](const void* request) -> void* {
-        auto result = EchoAsync_impl(*static_cast<const EchoRequest*>(request));
-        return new EchoResponse(result.get());
+    register_async_method("Echo", [this](const EchoRequest& request) {
+        return EchoAsync_impl(request);
     });
 }
 
@@ -36,6 +33,10 @@ std::future<GetUserResponse> TestServiceServiceBase::GetUserAsync(const GetUserR
 
 std::future<EchoResponse> TestServiceServiceBase::EchoAsync(const EchoRequest& request) {
     return EchoAsync_impl(request);
+}
+
+void TestServiceServiceBase::register_with_manager(ServiceManager& manager) {
+    manager.register_service(std::make_shared<TestServiceServiceBase>());
 }
 
 }} // namespace bitrpc

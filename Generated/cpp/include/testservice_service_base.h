@@ -4,18 +4,19 @@
 
 #pragma once
 
-#include <bitrpc/server/base_service.h>
+#include <bitrpc/server.h>
 #include "example::protocol/itestservice_service.h"
 
 namespace bitrpc {
 namespace example::protocol {
 
-class TestServiceServiceBase : public BaseService, public ITestServiceService {
+class TestServiceServiceBase : public EnhancedBaseService, public ITestServiceService {
 public:
     TestServiceServiceBase();
     std::future<LoginResponse> LoginAsync(const LoginRequest& request) override;
     std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request) override;
     std::future<EchoResponse> EchoAsync(const EchoRequest& request) override;
+    static void register_with_manager(ServiceManager& manager);
 
 protected:
     void register_methods() override;

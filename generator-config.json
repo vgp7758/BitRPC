@@ -18,7 +18,13 @@
       "name": "cpp",
       "enabled": true,
       "namespace": "example.protocol",
-      "runtimePath": "Src/C++Core"
+      "runtimePath": "Src/C++Core",
+      "specificOptions": {
+        "Cpp": {
+          "RuntimeIncludeDir": "runtime",
+          "RuntimeSubdir": "runtime"
+        }
+      }
     }
   ]
 }

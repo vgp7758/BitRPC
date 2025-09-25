@@ -2,7 +2,7 @@
 // File: serializer_registry.cpp
 // Language: Cpp
 
-#include <bitrpc/serialization/buffer_serializer.h>
+#include <bitrpc/serialization.h>
 
 #include "example::protocol/userinfo_serializer.h"
 #include "example::protocol/loginrequest_serializer.h"

@@ -257,7 +257,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
 
             sb.AppendLine("    @classmethod");
-            sb.AppendLine("    def create_tcp_client(cls, host: str, port: int) -> '{service.Name}Client':");
+            sb.AppendLine($"    def create_tcp_client(cls, host: str, port: int) -> '{service.Name}Client':");
             sb.AppendLine("        \"\"\"Create a TCP client for the service\"");
             sb.AppendLine("        tcp_client = RpcClientFactory.create_tcp_client(host, port)");
             sb.AppendLine("        return cls(tcp_client)");

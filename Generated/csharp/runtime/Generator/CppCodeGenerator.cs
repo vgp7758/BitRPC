@@ -149,7 +149,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("#pragma once");
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/serialization/type_handler.h>");
+            sb.AppendLine($"#include <{runtimeInclude}/serialization.h>");
             sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/models.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -303,7 +303,7 @@ namespace BitRPC.Protocol.Generator
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader("serializer_registry.cpp", options));
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/serialization/buffer_serializer.h>");
+            sb.AppendLine($"#include <{runtimeInclude}/serialization.h>");
             sb.AppendLine();
 
             foreach (var message in definition.Messages)
@@ -355,7 +355,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("#pragma once");
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/client/base_client.h>");
+            sb.AppendLine($"#include <{runtimeInclude}/client.h>");
             sb.AppendLine("#include <future>");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -363,7 +363,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             sb.AppendLine($"class {service.Name}Client : public BaseClient {{");
             sb.AppendLine("public:");
-            sb.AppendLine($"    explicit {service.Name}Client(std::shared_ptr<RpcClient> client);");
+            sb.AppendLine($"    explicit {service.Name}Client(std::shared_ptr<IRpcClient> client);");
             sb.AppendLine();
 
             foreach (var method in service.Methods)
@@ -387,7 +387,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
-            sb.AppendLine($"{service.Name}Client::{service.Name}Client(std::shared_ptr<RpcClient> client)");
+            sb.AppendLine($"{service.Name}Client::{service.Name}Client(std::shared_ptr<IRpcClient> client)");
             sb.AppendLine("    : BaseClient(client) {}");
             sb.AppendLine();
 
@@ -398,6 +398,11 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine("}");
                 sb.AppendLine();
             }
+
+            sb.AppendLine($"std::shared_ptr<{service.Name}Client> {service.Name}Client::create_tcp_client(const std::string& host, int port) {{");
+            sb.AppendLine($"    auto tcp_client = RpcClientFactory::create_tcp_client_native(host, port);");
+            sb.AppendLine($"    return std::make_shared<{service.Name}Client>(std::static_pointer_cast<IRpcClient>(tcp_client));");
+            sb.AppendLine("}");
 
             sb.AppendLine("}} // namespace bitrpc");
 
@@ -461,13 +466,13 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("#pragma once");
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/server/base_service.h>");
+            sb.AppendLine($"#include <{runtimeInclude}/server.h>");
             sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/i{service.Name.ToLower()}_service.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
-            sb.AppendLine($"class {service.Name}ServiceBase : public BaseService, public I{service.Name}Service {{");
+            sb.AppendLine($"class {service.Name}ServiceBase : public EnhancedBaseService, public I{service.Name}Service {{");
             sb.AppendLine("public:");
             sb.AppendLine($"    {service.Name}ServiceBase();");
 
@@ -475,6 +480,8 @@ namespace BitRPC.Protocol.Generator
             {
                 sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) override;");
             }
+
+            sb.AppendLine($"    static void register_with_manager(ServiceManager& manager);");
 
             sb.AppendLine();
             sb.AppendLine("protected:");
@@ -509,9 +516,8 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    register_method(\"{method.Name}\", [this](const void* request) -> void* {{");
-                sb.AppendLine($"        auto result = {method.Name}Async_impl(*static_cast<const {method.RequestType}*>(request));");
-                sb.AppendLine($"        return new {method.ResponseType}(result.get());");
+                sb.AppendLine($"    register_async_method(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
+                sb.AppendLine($"        return {method.Name}Async_impl(request);");
                 sb.AppendLine("    });");
             }
 
@@ -525,6 +531,11 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine("}");
                 sb.AppendLine();
             }
+
+            sb.AppendLine($"void {service.Name}ServiceBase::register_with_manager(ServiceManager& manager) {{");
+            sb.AppendLine($"    manager.register_service(std::make_shared<{service.Name}ServiceBase>());");
+            sb.AppendLine("}");
+            sb.AppendLine();
 
             sb.AppendLine("}} // namespace bitrpc");
 
@@ -602,7 +613,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("add_library(${PROJECT_NAME} STATIC ${SOURCES})");
             sb.AppendLine();
             sb.AppendLine("target_link_libraries(${PROJECT_NAME}");
-            sb.AppendLine("    bitrpc::core");
+            sb.AppendLine("    bitrpc_runtime");
             sb.AppendLine(")");
 
             File.WriteAllText(filePath, sb.ToString());
