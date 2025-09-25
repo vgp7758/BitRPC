@@ -189,7 +189,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine($"void {message.Name}Serializer::write(const void* obj, StreamWriter& writer) const {{");
-            sb.AppendLine($"    const auto& message = *static_cast<const {message.Name}*>(obj);");
+            sb.AppendLine($"    const auto& obj_ref = *static_cast<const {message.Name}*>(obj);");
             sb.AppendLine("    BitMask mask;");
             sb.AppendLine();
 
@@ -205,7 +205,7 @@ namespace BitRPC.Protocol.Generator
                 {
                     var field = fieldInfo.Field;
                     var bitIndex = fieldInfo.Index % 32;
-                    sb.AppendLine($"    mask.set_bit({bitIndex}, !is_default_{field.Type.ToString().ToLower()}(message.{field.Name}));");
+                    sb.AppendLine($"    mask.set_bit({bitIndex}, !is_default_{field.Type.ToString().ToLower()}(obj_ref.{field.Name}));");
                 }
                 sb.AppendLine($"    mask.write(writer);");
                 sb.AppendLine();
@@ -224,7 +224,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine($"void* {message.Name}Serializer::read(StreamReader& reader) const {{");
-            sb.AppendLine($"    auto message = std::make_unique<{message.Name}>();");
+            sb.AppendLine($"    auto obj_ptr = std::make_unique<{message.Name}>();");
             sb.AppendLine();
 
             for (int group = 0; group < fieldGroups.Count; group++)
@@ -246,18 +246,13 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine("    }");
             }
 
-            sb.AppendLine("    return message.release();");
+            sb.AppendLine("    return obj_ptr.release();");
             sb.AppendLine("}");
-            sb.AppendLine();
-            // Add default check methods for each field type
-            var fieldTypes = message.Fields.Select(f => f.Type).Distinct();
-            foreach (var fieldType in fieldTypes)
-            {
-                sb.AppendLine($"    bool is_default_{fieldType.ToString().ToLower()}(const {GetCppTypeName(fieldType)}& value) const;");
-            }
+            sb.AppendLine("};");
             sb.AppendLine();
 
             // Implement default check methods
+            var fieldTypes = message.Fields.Select(f => f.Type).Distinct();
             foreach (var fieldType in fieldTypes)
             {
                 sb.AppendLine($"bool {message.Name}Serializer::is_default_{fieldType.ToString().ToLower()}(const {GetCppTypeName(fieldType)}& value) const {{");
@@ -687,10 +682,10 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"writer.write_vector(message.{field.Name}, [](const auto& x) {{ {GenerateCppWriteValue(field.Type, "x")} }});";
+                return $"writer.write_vector(obj_ref.{field.Name}, [](const auto& x) {{ {GenerateCppWriteValue(field.Type, "x")} }});";
             }
 
-            return $"{GenerateCppWriteValue(field.Type, $"message.{field.Name}")};";
+            return $"{GenerateCppWriteValue(field.Type, $"obj_ref.{field.Name}")};";
         }
 
         private string GenerateCppWriteValue(FieldType type, string value)
@@ -711,10 +706,10 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"message->{field.Name} = reader.read_vector([]() {{ return {GenerateCppReadValue(field.Type)}; }});";
+                return $"obj_ptr->{field.Name} = reader.read_vector([]() {{ return {GenerateCppReadValue(field.Type)}; }});";
             }
 
-            return $"message->{field.Name} = {GenerateCppReadValue(field.Type)};";
+            return $"obj_ptr->{field.Name} = {GenerateCppReadValue(field.Type)};";
         }
 
         private string GenerateCppReadValue(FieldType type)

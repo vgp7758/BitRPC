@@ -1,0 +1,34 @@
+{
+  "protocolFile": "test_protocol.pdl",
+  "outputDirectory": ".",
+  "languages": [
+    {
+      "name": "csharp",
+      "enabled": true,
+      "namespace": "Test.Protocol",
+      "outputDirectory": ".",
+      "runtimePath": "../../Src/Serialization",
+      "clientRuntimePath": "../../Src/Client",
+      "serverRuntimePath": "../../Src/Server",
+      "specificOptions": {
+        "RuntimeSubdir": "runtime"
+      }
+    },
+    {
+      "name": "cpp",
+      "enabled": true,
+      "namespace": "Test.Protocol",
+      "outputDirectory": ".",
+      "runtimePath": "../../Src/C++Core",
+      "clientRuntimePath": "../../Src/C++Core",
+      "serverRuntimePath": "../../Src/C++Core",
+      "specificOptions": {
+        "RuntimeSubdir": "runtime",
+        "Cpp": {
+          "RuntimeIncludePrefix": "bitrpc",
+          "RuntimeIncludeDir": "runtime"
+        }
+      }
+    }
+  ]
+}

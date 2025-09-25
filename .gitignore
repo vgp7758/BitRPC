@@ -5,3 +5,6 @@
 /Src/GeneratorApp/bin
 /Src/GeneratorApp/obj
 /Src/GeneratorApp/.vs
+**/.vs/
+**/obj/
+**/bin/
