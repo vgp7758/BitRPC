@@ -1,5 +1,5 @@
 {
-  "protocolFile": "Examples/user_service.pdl",
+  "protocolFile": "Demo/test_protocol.pdl",
   "outputDirectory": "Generated",
   "languages": [
     {

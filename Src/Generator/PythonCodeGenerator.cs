@@ -243,8 +243,8 @@ namespace BitRPC.Protocol.Generator
             var runtimeBase = GetRuntimeImportBase(options);
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{service.Name}_client.py", options));
-            sb.AppendLine("from typing import TypeVar, Generic");
-            sb.AppendLine($"from {runtimeBase}.client import BaseClient");
+            sb.AppendLine("from typing import TypeVar, Generic, Optional");
+            sb.AppendLine($"from {runtimeBase}.client import BaseClient, RpcClientFactory, IRpcClient");
             var importPath = GetModelsImportPath(options);
             sb.AppendLine($"from {importPath} import {string.Join(", ", service.Methods.Select(m => m.RequestType).Concat(service.Methods.Select(m => m.ResponseType)).Distinct())}");
             sb.AppendLine();
@@ -252,8 +252,15 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"class {service.Name}Client(BaseClient):");
             sb.AppendLine($"    \"\"\"Client for {service.Name} service\"\"\"");
             sb.AppendLine();
-            sb.AppendLine("    def __init__(self, client):");
+            sb.AppendLine("    def __init__(self, client: IRpcClient):");
             sb.AppendLine("        super().__init__(client)");
+            sb.AppendLine();
+
+            sb.AppendLine("    @classmethod");
+            sb.AppendLine($"    def create_tcp_client(cls, host: str, port: int) -> '{service.Name}Client':");
+            sb.AppendLine("        \"\"\"Create a TCP client for the service\"");
+            sb.AppendLine("        tcp_client = RpcClientFactory.create_tcp_client(host, port)");
+            sb.AppendLine("        return cls(tcp_client)");
             sb.AppendLine();
 
             foreach (var method in service.Methods)
@@ -313,12 +320,16 @@ namespace BitRPC.Protocol.Generator
             var runtimeBase = GetRuntimeImportBase(options);
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{service.Name}_service_base.py", options));
-            sb.AppendLine($"from {runtimeBase}.server import BaseService");
+            sb.AppendLine($"from {runtimeBase}.server import BaseService, ServiceManager");
             sb.AppendLine($"from .i{service.Name.ToLower()}_service import I{service.Name}Service");
             sb.AppendLine();
 
             sb.AppendLine($"class {service.Name}ServiceBase(BaseService, I{service.Name}Service):");
             sb.AppendLine($"    \"\"\"Base implementation for {service.Name} service\"\"\"");
+            sb.AppendLine();
+            sb.AppendLine("    @property");
+            sb.AppendLine($"    def service_name(self) -> str:");
+            sb.AppendLine($"        return \"{service.Name}\"");
             sb.AppendLine();
             sb.AppendLine("    def _register_methods(self) -> None:");
             sb.AppendLine("        \"\"\"Register service methods\"\"\"");
@@ -337,6 +348,12 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine("        raise NotImplementedError(\"Method not implemented\")");
                 sb.AppendLine();
             }
+
+            sb.AppendLine("    @classmethod");
+            sb.AppendLine($"    def register_with_manager(cls, manager: ServiceManager) -> None:");
+            sb.AppendLine($"        \"\"\"Register this service with a service manager\"");
+            sb.AppendLine($"        manager.register_service(cls())");
+            sb.AppendLine();
 
             return sb.ToString();
         }

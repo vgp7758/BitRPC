@@ -1,0 +1,287 @@
+#pragma once
+
+#include <string>
+#include <functional>
+#include <memory>
+#include <vector>
+#include <cstdint>
+#include <unordered_map>
+#include <chrono>
+#include <typeinfo>
+#include <typeindex>
+#include <thread>
+#include <mutex>
+
+namespace bitrpc {
+
+class StreamReader;
+class StreamWriter;
+
+// Type handler interface
+class TypeHandler {
+public:
+    virtual ~TypeHandler() = default;
+    virtual int hash_code() const = 0;
+    virtual void write(const void* obj, StreamWriter& writer) const = 0;
+    virtual void* read(StreamReader& reader) const = 0;
+};
+
+// Buffer serializer interface
+class BufferSerializer {
+public:
+    static BufferSerializer& instance();
+
+    template<typename T>
+    void register_handler(std::shared_ptr<TypeHandler> handler) {
+        register_handler_impl(typeid(T).hash_code(), handler);
+    }
+
+    TypeHandler* get_handler(size_t type_hash) const;
+    TypeHandler* get_handler_by_hash_code(int hash_code) const;
+    void register_handler_impl(size_t type_hash, std::shared_ptr<TypeHandler> handler);
+    void init_handlers();
+
+private:
+    BufferSerializer() = default;
+    std::unordered_map<size_t, std::shared_ptr<TypeHandler>> handlers_;
+    std::unordered_map<int, std::shared_ptr<TypeHandler>> handlers_by_hash_code_;
+};
+
+// Bit mask implementation
+class BitMask {
+public:
+    BitMask();
+    explicit BitMask(int size);
+
+    int size() const { return static_cast<int>(masks_.size()); }
+    void set_bit(int index, bool value);
+    bool get_bit(int index) const;
+    void clear();
+
+    void write(StreamWriter& writer) const;
+    void read(StreamReader& reader);
+
+private:
+    std::vector<uint32_t> masks_;
+};
+
+// Stream writer for serialization
+class StreamWriter {
+public:
+    StreamWriter();
+
+    void write_int32(int32_t value);
+    void write_int64(int64_t value);
+    void write_uint32(uint32_t value);
+    void write_float(float value);
+    void write_double(double value);
+    void write_bool(bool value);
+    void write_string(const std::string& value);
+    void write_bytes(const std::vector<uint8_t>& bytes);
+
+    template<typename T>
+    void write_vector(const std::vector<T>& vec, std::function<void(const T&)> write_func);
+
+    void write_object(const void* obj, size_t type_hash);
+
+    std::vector<uint8_t> to_array() const;
+
+private:
+    std::vector<uint8_t> buffer_;
+    size_t position_;
+};
+
+// Stream reader for deserialization
+class StreamReader {
+public:
+    explicit StreamReader(const std::vector<uint8_t>& data);
+
+    int32_t read_int32();
+    int64_t read_int64();
+    uint32_t read_uint32();
+    float read_float();
+    double read_double();
+    bool read_bool();
+    std::string read_string();
+    std::vector<uint8_t> read_bytes();
+
+    template<typename T>
+    std::vector<T> read_vector(std::function<T()> read_func);
+
+    void* read_object();
+
+private:
+    std::vector<uint8_t> data_;
+    size_t position_;
+};
+
+// Type handlers
+class Int32Handler : public TypeHandler {
+public:
+    int hash_code() const override { return 101; }
+    void write(const void* obj, StreamWriter& writer) const override;
+    void* read(StreamReader& reader) const override;
+};
+
+class Int64Handler : public TypeHandler {
+public:
+    int hash_code() const override { return 102; }
+    void write(const void* obj, StreamWriter& writer) const override;
+    void* read(StreamReader& reader) const override;
+};
+
+class FloatHandler : public TypeHandler {
+public:
+    int hash_code() const override { return 103; }
+    void write(const void* obj, StreamWriter& writer) const override;
+    void* read(StreamReader& reader) const override;
+};
+
+class DoubleHandler : public TypeHandler {
+public:
+    int hash_code() const override { return 104; }
+    void write(const void* obj, StreamWriter& writer) const override;
+    void* read(StreamReader& reader) const override;
+};
+
+class BoolHandler : public TypeHandler {
+public:
+    int hash_code() const override { return 105; }
+    void write(const void* obj, StreamWriter& writer) const override;
+    void* read(StreamReader& reader) const override;
+};
+
+class StringHandler : public TypeHandler {
+public:
+    int hash_code() const override { return 106; }
+    void write(const void* obj, StreamWriter& writer) const override;
+    void* read(StreamReader& reader) const override;
+};
+
+class BytesHandler : public TypeHandler {
+public:
+    int hash_code() const override { return 107; }
+    void write(const void* obj, StreamWriter& writer) const override;
+    void* read(StreamReader& reader) const override;
+};
+
+// RPC Client interface
+class RpcClient {
+public:
+    virtual ~RpcClient() = default;
+    virtual void connect(const std::string& host, int port) = 0;
+    virtual void disconnect() = 0;
+    virtual bool is_connected() const = 0;
+    virtual std::vector<uint8_t> call(const std::string& method, const std::vector<uint8_t>& request) = 0;
+};
+
+// TCP RPC Client implementation
+class TcpRpcClient : public RpcClient {
+public:
+    TcpRpcClient();
+    ~TcpRpcClient() override;
+
+    void connect(const std::string& host, int port) override;
+    void disconnect() override;
+    bool is_connected() const override;
+    std::vector<uint8_t> call(const std::string& method, const std::vector<uint8_t>& request) override;
+
+private:
+    void* socket_; // Platform-specific socket handle
+    bool connected_;
+    void initialize_network();
+    void cleanup_network();
+};
+
+// RPC Server interface
+class RpcServer {
+public:
+    virtual ~RpcServer() = default;
+    virtual void start(int port) = 0;
+    virtual void stop() = 0;
+};
+
+// Base service class
+class BaseService {
+public:
+    virtual ~BaseService() = default;
+    virtual std::string service_name() const = 0;
+    virtual void* call_method(const std::string& method_name, void* request) = 0;
+    virtual bool has_method(const std::string& method_name) const = 0;
+};
+
+// Method registration helper
+template<typename TRequest, typename TResponse>
+using ServiceMethod = std::function<TResponse*(const TRequest*)>;
+
+// TCP RPC Server implementation
+class TcpRpcServer : public RpcServer {
+public:
+    TcpRpcServer();
+    ~TcpRpcServer() override;
+
+    void register_service(std::shared_ptr<BaseService> service);
+    void start(int port) override;
+    void stop() override;
+
+private:
+    std::unordered_map<std::string, std::shared_ptr<BaseService>> services_;
+    void* server_socket_;
+    bool is_running_;
+    std::vector<std::thread> client_threads_;
+    std::mutex services_mutex_;
+
+    void handle_client(void* client_socket);
+    std::pair<std::string, std::string> parse_method_name(const std::string& method);
+    void initialize_network();
+    void cleanup_network();
+};
+
+// Base service implementation with method registration
+class ServiceBase : public BaseService {
+public:
+    ServiceBase(const std::string& name);
+    std::string service_name() const override { return name_; }
+    bool has_method(const std::string& method_name) const override;
+    void* call_method(const std::string& method_name, void* request) override;
+
+protected:
+    template<typename TRequest, typename TResponse>
+    void register_method(const std::string& method_name, ServiceMethod<TRequest, TResponse> method);
+
+private:
+    std::string name_;
+    std::unordered_map<std::string, std::function<void*(void*)>> methods_;
+    std::mutex methods_mutex_;
+};
+
+// Template implementations
+template<typename TRequest, typename TResponse>
+void ServiceBase::register_method(const std::string& method_name, ServiceMethod<TRequest, TResponse> method) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    methods_[method_name] = [method](void* request) -> void* {
+        return method(static_cast<const TRequest*>(request));
+    };
+}
+
+// Template implementations
+template<typename T>
+void StreamWriter::write_vector(const std::vector<T>& vec, std::function<void(const T&)> write_func) {
+    write_int32(static_cast<int32_t>(vec.size()));
+    for (const auto& item : vec) {
+        write_func(item);
+    }
+}
+
+template<typename T>
+std::vector<T> StreamReader::read_vector(std::function<T()> read_func) {
+    int32_t size = read_int32();
+    std::vector<T> result;
+    result.reserve(size);
+    for (int32_t i = 0; i < size; ++i) {
+        result.push_back(read_func());
+    }
+    return result;
+}
+
+} // namespace bitrpc
