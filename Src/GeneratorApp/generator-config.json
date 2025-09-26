@@ -7,7 +7,14 @@
       "Enabled": true,
       "Namespace": "Test::Protocol",
       "RuntimePath": "../../Src/C++Core",
-      "OutputDirectory": "../../Demo/cpp"
+      "OutputDirectory": "../../Demo/cpp",
+      "SpecificOptions": {
+        "RuntimeSubdir": "runtime",
+        "Cpp": {
+          "RuntimeIncludePrefix": "bitrpc",
+          "RuntimeIncludeDir": "runtime"
+        }
+      }
     }
   ]
 }

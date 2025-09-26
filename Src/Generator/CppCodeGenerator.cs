@@ -450,7 +450,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             sb.AppendLine($"class I{service.Name}Service {{");
             sb.AppendLine("public:");
-            sb.AppendLine("    virtual ~I{service.Name}Service() = default;");
+            sb.AppendLine($"    virtual ~I{service.Name}Service() = default;");
 
             foreach (var method in service.Methods)
             {
