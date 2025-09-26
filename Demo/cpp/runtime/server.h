@@ -8,9 +8,60 @@
 #include <mutex>
 #include <atomic>
 #include <functional>
-#include "rpc_core.h"
+#include <future>
+#include "serialization.h"
 
 namespace bitrpc {
+
+// Unified RPC Server interface
+class IRpcServer {
+public:
+    virtual ~IRpcServer() = default;
+
+    // Start methods
+    virtual void start(int port) = 0;
+    virtual void start_async(const std::string& host, int port) = 0;
+
+    // Server control
+    virtual void stop() = 0;
+    virtual bool is_running() const = 0;
+
+    // Service management
+    virtual ServiceManager& service_manager() = 0;
+};
+
+// Legacy interface for backward compatibility
+using RpcServer = IRpcServer;
+
+// Method registration helper
+template<typename TRequest, typename TResponse>
+using ServiceMethod = std::function<TResponse*(const TRequest*)>;
+
+// Base service class with method registration
+class BaseService {
+public:
+    explicit BaseService(const std::string& name);
+    virtual ~BaseService() = default;
+
+    std::string service_name() const { return name_; }
+    virtual bool has_method(const std::string& method_name) const;
+    virtual void* call_method(const std::string& method_name, void* request);
+    virtual std::future<void*> call_method_async(const std::string& method_name, void* request);
+
+protected:
+    template<typename TRequest, typename TResponse>
+    void register_method(const std::string& method_name, ServiceMethod<TRequest, TResponse> method);
+
+    template<typename TRequest, typename TResponse>
+    void register_async_method(const std::string& method_name,
+                               std::function<std::future<TResponse>(const TRequest&)> method);
+
+private:
+    std::string name_;
+    std::unordered_map<std::string, std::function<void*(void*)>> methods_;
+    std::unordered_map<std::string, std::function<std::future<void*>(void*)>> async_methods_;
+    mutable std::mutex methods_mutex_;
+};
 
 // Service Manager for managing multiple services
 class ServiceManager {
@@ -29,22 +80,13 @@ private:
     mutable std::mutex services_mutex_;
 };
 
-// RPC Server interface
-class IRpcServer {
-public:
-    virtual ~IRpcServer() = default;
-    virtual void start_async(const std::string& host, int port) = 0;
-    virtual void stop() = 0;
-    virtual bool is_running() const = 0;
-    virtual ServiceManager& service_manager() = 0;
-};
-
-// Enhanced TCP RPC Server with async support
+// Unified TCP RPC Server implementation
 class TcpRpcServer : public IRpcServer {
 public:
     TcpRpcServer();
     ~TcpRpcServer() override;
 
+    void start(int port) override;
     void start_async(const std::string& host, int port) override;
     void stop() override;
     bool is_running() const override;
@@ -65,31 +107,20 @@ private:
     void cleanup_network();
 };
 
-// Enhanced Base Service with better async support
-class EnhancedBaseService : public BaseService {
-public:
-    EnhancedBaseService(const std::string& name);
-    virtual ~EnhancedBaseService() = default;
-
-    // Override for async method handling
-    virtual std::future<void*> call_method_async(const std::string& method_name, void* request);
-
-protected:
-    // Helper for registering async methods
-    template<typename TRequest, typename TResponse>
-    void register_async_method(const std::string& method_name,
-                              std::function<std::future<TResponse>(const TRequest&)> method);
-
-private:
-    std::unordered_map<std::string, std::function<std::future<void*>(void*)>> async_methods_;
-    std::mutex async_methods_mutex_;
-};
 
 // Template implementations
 template<typename TRequest, typename TResponse>
-void EnhancedBaseService::register_async_method(const std::string& method_name,
-                                               std::function<std::future<TResponse>(const TRequest&)> method) {
-    std::lock_guard<std::mutex> lock(async_methods_mutex_);
+void BaseService::register_method(const std::string& method_name, ServiceMethod<TRequest, TResponse> method) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    methods_[method_name] = [method](void* request) -> void* {
+        return method(static_cast<const TRequest*>(request));
+    };
+}
+
+template<typename TRequest, typename TResponse>
+void BaseService::register_async_method(const std::string& method_name,
+                                        std::function<std::future<TResponse>(const TRequest&)> method) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
 
     async_methods_[method_name] = [method](void* request) -> std::future<void*> {
         auto typed_request = static_cast<const TRequest*>(request);

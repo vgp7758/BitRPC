@@ -12,7 +12,7 @@ namespace test::protocol {
 
 class ITestServiceService {
 public:
-    virtual ~I{service.Name}Service() = default;
+    virtual ~ITestServiceService() = default;
     virtual std::future<LoginResponse> LoginAsync(const LoginRequest& request) = 0;
     virtual std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request) = 0;
     virtual std::future<EchoResponse> EchoAsync(const EchoRequest& request) = 0;

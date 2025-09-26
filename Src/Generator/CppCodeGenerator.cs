@@ -285,7 +285,6 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
 
             sb.AppendLine($"#include \"../runtime/serialization.h\"");
-            sb.AppendLine("#include \"./models.h\"");
             
             foreach (var message in definition.Messages)
             {
@@ -359,7 +358,6 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
             sb.AppendLine($"#include \"../runtime/client.h\"");
-            sb.AppendLine($"#include \"./models.h\"");
             sb.AppendLine("#include <future>");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -472,12 +470,11 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
             sb.AppendLine($"#include \"../runtime/server.h\"");
-            sb.AppendLine($"#include \"./i{service.Name.ToLower()}_service.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
-            sb.AppendLine($"class {service.Name}ServiceBase : public EnhancedBaseService, public I{service.Name}Service {{");
+            sb.AppendLine($"class {service.Name}ServiceBase : public BaseService, public I{service.Name}Service {{");
             sb.AppendLine("public:");
             sb.AppendLine($"    {service.Name}ServiceBase();");
 

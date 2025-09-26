@@ -1,7 +1,9 @@
 #include "../cpp/include/models.h"
 #include "../cpp/include/testservice_service_base.h"
 #include "../cpp/include/protocol_factory.h"
-#include "../cpp/runtime/rpc_core.h"
+#include "../cpp/runtime/client.h"
+#include "../cpp/runtime/server.h"
+#include "../cpp/runtime/serialization.h"
 #include <iostream>
 #include <memory>
 #include <chrono>
@@ -15,9 +17,29 @@ class TestServiceImpl : public TestServiceServiceBase {
 public:
     TestServiceImpl() {
         // Initialize some test users
-        users_[1] = UserInfo{1, "admin", "admin@test.com", {"admin"}, true, std::chrono::system_clock::now()};
-        users_[2] = UserInfo{2, "user1", "user1@test.com", {"user"}, true, std::chrono::system_clock::now()};
-        users_[3] = UserInfo{3, "user2", "user2@test.com", {"user"}, false, std::chrono::system_clock::now()};
+        users_[1] = UserInfo();
+        users_[1].user_id = 1;
+        users_[1].username = "admin";
+        users_[1].email = "admin@test.com";
+        users_[1].roles = {"admin"};
+        users_[1].is_active = true;
+        users_[1].created_at = std::chrono::system_clock::now();
+
+        users_[2] = UserInfo();
+        users_[2].user_id = 2;
+        users_[2].username = "user1";
+        users_[2].email = "user1@test.com";
+        users_[2].roles = {"user"};
+        users_[2].is_active = true;
+        users_[2].created_at = std::chrono::system_clock::now();
+
+        users_[3] = UserInfo();
+        users_[3].user_id = 3;
+        users_[3].username = "user2";
+        users_[3].email = "user2@test.com";
+        users_[3].roles = {"user"};
+        users_[3].is_active = false;
+        users_[3].created_at = std::chrono::system_clock::now();
     }
 
     std::future<LoginResponse> LoginAsync_impl(const LoginRequest& request) override {

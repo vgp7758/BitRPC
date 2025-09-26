@@ -5,7 +5,6 @@
 #pragma once
 
 #include "../runtime/client.h"
-#include "./models.h"
 #include <future>
 
 namespace bitrpc {

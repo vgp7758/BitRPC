@@ -5,9 +5,23 @@
 #include <string>
 #include <unordered_map>
 #include <mutex>
-#include "rpc_core.h"
+#include <vector>
+#include <cstdint>
+#include <functional>
+#include <typeinfo>
+#include "serialization.h"
 
 namespace bitrpc {
+
+// RPC Client interface
+class RpcClient {
+public:
+    virtual ~RpcClient() = default;
+    virtual void connect(const std::string& host, int port) = 0;
+    virtual void disconnect() = 0;
+    virtual bool is_connected() const = 0;
+    virtual std::vector<uint8_t> call(const std::string& method, const std::vector<uint8_t>& request) = 0;
+};
 
 // RPC Client interface for async operations
 class IRpcClient {
@@ -34,11 +48,35 @@ private:
     std::mutex mutex_;
 };
 
-// TCP RPC Client implementation with async support
-class TcpRpcClient : public IRpcClient {
+// TCP RPC Client implementation
+class TcpRpcClient : public RpcClient {
 public:
     TcpRpcClient();
     ~TcpRpcClient() override;
+
+    void connect(const std::string& host, int port) override;
+    void disconnect() override;
+    bool is_connected() const override;
+    std::vector<uint8_t> call(const std::string& method, const std::vector<uint8_t>& request) override;
+
+private:
+#ifdef _WIN32
+    void* socket_; // Platform-specific socket handle
+#else
+    int socket_; // Unix socket handle
+#endif
+    bool connected_;
+    std::mutex socket_mutex_;
+
+    void initialize_network();
+    void cleanup_network();
+};
+
+// TCP RPC Client implementation with async support
+class TcpRpcClientAsync : public IRpcClient {
+public:
+    TcpRpcClientAsync();
+    ~TcpRpcClientAsync() override;
 
     void connect(const std::string& host, int port) override;
     void disconnect() override;
@@ -60,6 +98,7 @@ class RpcClientFactory {
 public:
     static std::shared_ptr<IRpcClient> create_tcp_client(const std::string& host, int port);
     static std::shared_ptr<TcpRpcClient> create_tcp_client_native(const std::string& host, int port);
+    static std::shared_ptr<TcpRpcClientAsync> create_tcp_client_async(const std::string& host, int port);
 };
 
 // Template implementations

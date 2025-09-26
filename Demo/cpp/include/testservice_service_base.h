@@ -5,12 +5,11 @@
 #pragma once
 
 #include "../runtime/server.h"
-#include "./itestservice_service.h"
 
 namespace bitrpc {
 namespace test::protocol {
 
-class TestServiceServiceBase : public EnhancedBaseService, public ITestServiceService {
+class TestServiceServiceBase : public BaseService, public ITestServiceService {
 public:
     TestServiceServiceBase();
     std::future<LoginResponse> LoginAsync(const LoginRequest& request) override;

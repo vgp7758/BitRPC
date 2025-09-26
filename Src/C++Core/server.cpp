@@ -56,6 +56,32 @@ std::vector<std::string> ServiceManager::get_service_names() const {
     return names;
 }
 
+BaseService::BaseService(const std::string& name) : name_(name) {}
+
+bool BaseService::has_method(const std::string& method_name) const {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    return methods_.find(method_name) != methods_.end() ||
+           async_methods_.find(method_name) != async_methods_.end();
+}
+
+void* BaseService::call_method(const std::string& method_name, void* request) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    auto it = methods_.find(method_name);
+    if (it != methods_.end()) {
+        return it->second(request);
+    }
+    throw std::runtime_error("Method not found: " + method_name);
+}
+
+std::future<void*> BaseService::call_method_async(const std::string& method_name, void* request) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    auto it = async_methods_.find(method_name);
+    if (it != async_methods_.end()) {
+        return it->second(request);
+    }
+    throw std::runtime_error("Async method not found: " + method_name);
+}
+
 TcpRpcServer::TcpRpcServer()
     : service_manager_(std::make_shared<ServiceManager>()),
       server_socket_(nullptr),
@@ -70,6 +96,10 @@ TcpRpcServer::~TcpRpcServer() {
 #ifdef _WIN32
     cleanup_network();
 #endif
+}
+
+void TcpRpcServer::start(int port) {
+    start_async("0.0.0.0", port);
 }
 
 void TcpRpcServer::start_async(const std::string& host, int port) {
@@ -257,19 +287,6 @@ std::pair<std::string, std::string> TcpRpcServer::parse_method_name(const std::s
         return {method, ""};
     }
     return {method.substr(0, dot_pos), method.substr(dot_pos + 1)};
-}
-
-EnhancedBaseService::EnhancedBaseService(const std::string& name) {
-    // This would need to be implemented in the base class
-    // For now, we'll leave it empty
-}
-
-std::future<void*> EnhancedBaseService::call_method_async(const std::string& method_name, void* request) {
-    auto it = async_methods_.find(method_name);
-    if (it != async_methods_.end()) {
-        return it->second(request);
-    }
-    throw std::runtime_error("Method not found: " + method_name);
 }
 
 #ifdef _WIN32

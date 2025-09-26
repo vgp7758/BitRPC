@@ -6,21 +6,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(SOURCES
     client_main.cpp
-    ../../Generated/cpp/src/models.cpp
-    ../../Generated/cpp/src/echorequest_serializer.cpp
-    ../../Generated/cpp/src/echoresponse_serializer.cpp
-    ../../Generated/cpp/src/getuserrequest_serializer.cpp
-    ../../Generated/cpp/src/getuserresponse_serializer.cpp
-    ../../Generated/cpp/src/loginrequest_serializer.cpp
-    ../../Generated/cpp/src/loginresponse_serializer.cpp
-    ../../Generated/cpp/src/userinfo_serializer.cpp
-    ../../Generated/cpp/src/serializer_registry.cpp
-    ../../Generated/cpp/src/testservice_client.cpp
-    ../../Src/C++Core/rpc_core.cpp
+    ../cpp/src/models.cpp
+    ../cpp/src/echorequest_serializer.cpp
+    ../cpp/src/echoresponse_serializer.cpp
+    ../cpp/src/getuserrequest_serializer.cpp
+    ../cpp/src/getuserresponse_serializer.cpp
+    ../cpp/src/loginrequest_serializer.cpp
+    ../cpp/src/loginresponse_serializer.cpp
+    ../cpp/src/userinfo_serializer.cpp
+    ../cpp/src/serializer_registry.cpp
+    ../cpp/src/testservice_client.cpp
+    ../cpp/runtime/rpc_core.cpp
 )
 
-include_directories(../../Generated/cpp/include)
-include_directories(../../Src/C++Core)
+include_directories(../cpp/include)
+include_directories(../cpp/runtime)
 
 add_executable(test_client ${SOURCES})
 

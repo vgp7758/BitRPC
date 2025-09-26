@@ -1,7 +1,7 @@
-#include "../../Generated/cpp/include/models.h"
-#include "../../Generated/cpp/include/testservice_client.h"
-#include "../../Generated/cpp/include/protocol_factory.h"
-#include "../../Src/C++Core/rpc_core.h"
+#include "../cpp/include/models.h"
+#include "../cpp/include/testservice_client.h"
+#include "../cpp/include/protocol_factory.h"
+#include "../cpp/runtime/rpc_core.h"
 #include <iostream>
 #include <memory>
 #include <chrono>
