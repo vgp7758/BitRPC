@@ -163,6 +163,27 @@ public:
         return std::unique_ptr<T>(static_cast<T*>(obj));
     }
 
+    // Helper method for struct registration (aligns with C# pattern)
+    template<typename T>
+    void register_struct_handler() {
+        register_handler<T>(std::make_shared<StructTypeHandler<T>>());
+    }
+
+    // C#-style serialization methods for convenience
+    template<typename T>
+    std::vector<uint8_t> serialize(const T& obj) {
+        StreamWriter writer;
+        serialize(&obj, writer);
+        return writer.to_array();
+    }
+
+    template<typename T>
+    T deserialize(const std::vector<uint8_t>& data) {
+        StreamReader reader(data);
+        auto result = deserialize<T>(reader);
+        return std::move(*result);
+    }
+
     TypeHandler* get_handler(size_t type_hash) const;
     TypeHandler* get_handler_by_hash_code(int hash_code) const;
     void register_handler_impl(size_t type_hash, std::shared_ptr<TypeHandler> handler);
@@ -247,7 +268,10 @@ public:
 template<typename T>
 class StructTypeHandler : public TypeHandler {
 public:
-    int hash_code() const override { return T::type_hash(); }
+    int hash_code() const override {
+        // Use typeid hash for consistency with other types
+        return static_cast<int>(typeid(T).hash_code());
+    }
 
     void write(const void* obj, StreamWriter& writer) const override {
         const T* typed_obj = static_cast<const T*>(obj);
@@ -259,11 +283,6 @@ public:
     }
 };
 
-// Helper for registering struct handlers
-template<typename T>
-void register_struct_handler(BufferSerializer& serializer) {
-    serializer.register_handler<T>(std::make_shared<StructTypeHandler<T>>());
-}
 
 // Global serializer instance
 inline BufferSerializer& get_serializer() {
