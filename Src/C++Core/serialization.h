@@ -40,6 +40,20 @@ public:
     virtual int hash_code() const = 0;
     virtual void write(const void* obj, StreamWriter& writer) const = 0;
     virtual void* read(StreamReader& reader) const = 0;
+
+    // Static is_default method to be implemented by each concrete handler
+    virtual bool is_default(const void* obj) const = 0;
+
+    // Convenience static methods for built-in types
+    static bool is_default_int32(const int32_t& value) { return value == 0; }
+    static bool is_default_int64(const int64_t& value) { return value == 0; }
+    static bool is_default_float(const float& value) { return value == 0.0f; }
+    static bool is_default_double(const double& value) { return value == 0.0; }
+    static bool is_default_bool(const bool& value) { return value == false; }
+    static bool is_default_string(const std::string& value) { return value.empty(); }
+    static bool is_default_bytes(const std::vector<uint8_t>& value) { return value.empty(); }
+    static bool is_default_datetime(const std::chrono::system_clock::time_point& value);
+    static bool is_default_vector3(const Vector3& value);
 };
 
 // Bit mask implementation
@@ -166,7 +180,7 @@ public:
     // Helper method for struct registration (aligns with C# pattern)
     template<typename T>
     void register_struct_handler() {
-        register_handler<T>(std::make_shared<StructTypeHandler<T>>());
+        register_handler<T>(std::shared_ptr<TypeHandler>(&StructTypeHandler<T>::instance(), [](TypeHandler*){}));
     }
 
     // C#-style serialization methods for convenience
@@ -205,6 +219,16 @@ public:
     int hash_code() const override { return 101; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static Int32Handler& instance() {
+        static Int32Handler instance;
+        return instance;
+    }
+
+private:
+    Int32Handler() = default;
 };
 
 class Int64Handler : public TypeHandler {
@@ -212,6 +236,16 @@ public:
     int hash_code() const override { return 102; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static Int64Handler& instance() {
+        static Int64Handler instance;
+        return instance;
+    }
+
+private:
+    Int64Handler() = default;
 };
 
 class FloatHandler : public TypeHandler {
@@ -219,6 +253,16 @@ public:
     int hash_code() const override { return 103; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static FloatHandler& instance() {
+        static FloatHandler instance;
+        return instance;
+    }
+
+private:
+    FloatHandler() = default;
 };
 
 class DoubleHandler : public TypeHandler {
@@ -226,6 +270,16 @@ public:
     int hash_code() const override { return 104; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static DoubleHandler& instance() {
+        static DoubleHandler instance;
+        return instance;
+    }
+
+private:
+    DoubleHandler() = default;
 };
 
 class BoolHandler : public TypeHandler {
@@ -233,6 +287,16 @@ public:
     int hash_code() const override { return 105; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static BoolHandler& instance() {
+        static BoolHandler instance;
+        return instance;
+    }
+
+private:
+    BoolHandler() = default;
 };
 
 class StringHandler : public TypeHandler {
@@ -240,6 +304,16 @@ public:
     int hash_code() const override { return 106; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static StringHandler& instance() {
+        static StringHandler instance;
+        return instance;
+    }
+
+private:
+    StringHandler() = default;
 };
 
 class BytesHandler : public TypeHandler {
@@ -247,6 +321,16 @@ public:
     int hash_code() const override { return 107; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static BytesHandler& instance() {
+        static BytesHandler instance;
+        return instance;
+    }
+
+private:
+    BytesHandler() = default;
 };
 
 // Enhanced Type Handlers
@@ -255,6 +339,16 @@ public:
     int hash_code() const override { return 201; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static DateTimeHandler& instance() {
+        static DateTimeHandler instance;
+        return instance;
+    }
+
+private:
+    DateTimeHandler() = default;
 };
 
 class Vector3Handler : public TypeHandler {
@@ -262,6 +356,16 @@ public:
     int hash_code() const override { return 202; }
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static Vector3Handler& instance() {
+        static Vector3Handler instance;
+        return instance;
+    }
+
+private:
+    Vector3Handler() = default;
 };
 
 // Struct type handler for custom message types
@@ -281,6 +385,20 @@ public:
     void* read(StreamReader& reader) const override {
         return T::deserialize(reader);
     }
+
+    bool is_default(const void* obj) const override {
+        const T* typed_obj = static_cast<const T*>(obj);
+        return *typed_obj == T{};  // Compare with default-constructed value
+    }
+
+    // Singleton instance
+    static StructTypeHandler& instance() {
+        static StructTypeHandler instance;
+        return instance;
+    }
+
+private:
+    StructTypeHandler() = default;
 };
 
 

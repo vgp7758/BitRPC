@@ -130,7 +130,7 @@ int main() {
 
         // Create and register service
         auto service = std::make_shared<TestServiceImpl>();
-        server.register_service(service);
+        server.service_manager().register_service(service);
 
         // Start server on port 8080
         int port = 8080;

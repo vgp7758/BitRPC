@@ -29,16 +29,16 @@ void BufferSerializer::register_handler_impl(size_t type_hash, std::shared_ptr<T
 }
 
 void BufferSerializer::init_handlers() {
-    // Register built-in type handlers
-    register_handler_impl(typeid(int32_t).hash_code(), std::make_shared<Int32Handler>());
-    register_handler_impl(typeid(int64_t).hash_code(), std::make_shared<Int64Handler>());
-    register_handler_impl(typeid(float).hash_code(), std::make_shared<FloatHandler>());
-    register_handler_impl(typeid(double).hash_code(), std::make_shared<DoubleHandler>());
-    register_handler_impl(typeid(bool).hash_code(), std::make_shared<BoolHandler>());
-    register_handler_impl(typeid(std::string).hash_code(), std::make_shared<StringHandler>());
-    register_handler_impl(typeid(std::vector<uint8_t>).hash_code(), std::make_shared<BytesHandler>());
-    register_handler_impl(typeid(std::chrono::system_clock::time_point).hash_code(), std::make_shared<DateTimeHandler>());
-    register_handler_impl(typeid(Vector3).hash_code(), std::make_shared<Vector3Handler>());
+    // Register built-in type handlers using singleton instances
+    register_handler_impl(typeid(int32_t).hash_code(), std::shared_ptr<TypeHandler>(&Int32Handler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(int64_t).hash_code(), std::shared_ptr<TypeHandler>(&Int64Handler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(float).hash_code(), std::shared_ptr<TypeHandler>(&FloatHandler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(double).hash_code(), std::shared_ptr<TypeHandler>(&DoubleHandler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(bool).hash_code(), std::shared_ptr<TypeHandler>(&BoolHandler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(std::string).hash_code(), std::shared_ptr<TypeHandler>(&StringHandler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(std::vector<uint8_t>).hash_code(), std::shared_ptr<TypeHandler>(&BytesHandler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(std::chrono::system_clock::time_point).hash_code(), std::shared_ptr<TypeHandler>(&DateTimeHandler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(Vector3).hash_code(), std::shared_ptr<TypeHandler>(&Vector3Handler::instance(), [](TypeHandler*){}));
 }
 
 void BufferSerializer::serialize_impl(const void* obj, StreamWriter& writer, size_t type_hash) {
@@ -203,6 +203,61 @@ std::optional<std::string> StreamReader::read_optional_string() {
     } else {
         return std::nullopt;
     }
+}
+
+// TypeHandler convenience static method implementations
+bool TypeHandler::is_default_datetime(const std::chrono::system_clock::time_point& value) {
+    return value == std::chrono::system_clock::time_point{};
+}
+
+bool TypeHandler::is_default_vector3(const Vector3& value) {
+    return value.x == 0.0f && value.y == 0.0f && value.z == 0.0f;
+}
+
+// Base TypeHandler is_default implementations
+bool Int32Handler::is_default(const void* obj) const {
+    auto value = static_cast<const int32_t*>(obj);
+    return *value == 0;
+}
+
+bool Int64Handler::is_default(const void* obj) const {
+    auto value = static_cast<const int64_t*>(obj);
+    return *value == 0;
+}
+
+bool FloatHandler::is_default(const void* obj) const {
+    auto value = static_cast<const float*>(obj);
+    return *value == 0.0f;
+}
+
+bool DoubleHandler::is_default(const void* obj) const {
+    auto value = static_cast<const double*>(obj);
+    return *value == 0.0;
+}
+
+bool BoolHandler::is_default(const void* obj) const {
+    auto value = static_cast<const bool*>(obj);
+    return *value == false;
+}
+
+bool StringHandler::is_default(const void* obj) const {
+    auto value = static_cast<const std::string*>(obj);
+    return value->empty();
+}
+
+bool BytesHandler::is_default(const void* obj) const {
+    auto value = static_cast<const std::vector<uint8_t>*>(obj);
+    return value->empty();
+}
+
+bool DateTimeHandler::is_default(const void* obj) const {
+    auto value = static_cast<const std::chrono::system_clock::time_point*>(obj);
+    return *value == std::chrono::system_clock::time_point{};
+}
+
+bool Vector3Handler::is_default(const void* obj) const {
+    auto value = static_cast<const Vector3*>(obj);
+    return value->x == 0.0f && value->y == 0.0f && value->z == 0.0f;
 }
 
 } // namespace bitrpc

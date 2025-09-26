@@ -159,13 +159,23 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"    int hash_code() const override;");
             sb.AppendLine("    void write(const void* obj, StreamWriter& writer) const override;");
             sb.AppendLine("    void* read(StreamReader& reader) const override;");
+            sb.AppendLine("    bool is_default(const void* obj) const override;");
+            sb.AppendLine();
+            sb.AppendLine($"    // Singleton instance");
+            sb.AppendLine($"    static {message.Name}Serializer& instance() {{");
+            sb.AppendLine($"        static {message.Name}Serializer instance;");
+            sb.AppendLine($"        return instance;");
+            sb.AppendLine($"    }}");
+            sb.AppendLine();
+            sb.AppendLine($"    // Static convenience methods (aligns with C#)");
+            sb.AppendLine($"    static void serialize(const {message.Name}& obj, StreamWriter& writer);");
+            sb.AppendLine($"    static std::unique_ptr<{message.Name}> deserialize(StreamReader& reader);");
             sb.AppendLine();
             sb.AppendLine("private:");
-            // Add default check methods for each field type
-            var fieldTypes = message.Fields.Select(f => f.Type).Distinct();
-            foreach (var fieldType in fieldTypes)
+            // Add field-specific is_default methods
+            foreach (var field in message.Fields)
             {
-                sb.AppendLine($"    bool is_default_{fieldType.ToString().ToLower()}(const {GetCppTypeName(fieldType)}& value) const;");
+                sb.AppendLine($"    bool is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {GetCppTypeName(field.Type)}& value) const;");
             }
             sb.AppendLine("};");
             sb.AppendLine();
@@ -204,7 +214,7 @@ namespace BitRPC.Protocol.Generator
                 {
                     var field = fieldInfo.Field;
                     var bitIndex = fieldInfo.Index % 32;
-                    sb.AppendLine($"    mask.set_bit({bitIndex}, !is_default_{field.Type.ToString().ToLower()}(obj_ref.{field.Name}));");
+                    sb.AppendLine($"    mask.set_bit({bitIndex}, !is_default_{field.Type.ToString().ToLower()}_{field.Name}(obj_ref.{field.Name}));");
                 }
                 sb.AppendLine($"    mask.write(writer);");
                 sb.AppendLine();
@@ -249,16 +259,41 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("}");
             sb.AppendLine();
 
-            // Implement default check methods
-            sb.AppendLine("private:");
-            var fieldTypes = message.Fields.Select(f => f.Type).Distinct();
-            foreach (var fieldType in fieldTypes)
-            {
-                sb.AppendLine($"    bool is_default_{fieldType.ToString().ToLower()}(const {GetCppTypeName(fieldType)}& value) const {{");
-                sb.AppendLine($"        return value == {GetCppDefaultValueForType(fieldType)};");
-                sb.AppendLine("    }");
-            }
+            // is_default method implementation
+            sb.AppendLine($"bool {message.Name}Serializer::is_default(const void* obj) const {{");
+            sb.AppendLine($"    const auto& typed_obj = *static_cast<const {message.Name}*>(obj);");
+            sb.AppendLine($"    return typed_obj == {message.Name}{{}};");
+            sb.AppendLine("}");
             sb.AppendLine();
+
+            // Field-specific is_default method implementations
+            foreach (var field in message.Fields)
+            {
+                sb.AppendLine($"bool {message.Name}Serializer::is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {GetCppTypeName(field.Type)}& value) const {{");
+                if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
+                {
+                    // For struct fields, use the singleton handler
+                    sb.AppendLine($"    return {field.CustomType}Serializer::instance().is_default(&value);");
+                }
+                else
+                {
+                    // For built-in types, use the singleton handler
+                    var handlerName = GetSingletonHandlerForType(field.Type);
+                    sb.AppendLine($"    return {handlerName}.is_default(&value);");
+                }
+                sb.AppendLine("}");
+                sb.AppendLine();
+            }
+
+            // Static convenience methods
+            sb.AppendLine($"void {message.Name}Serializer::serialize(const {message.Name}& obj, StreamWriter& writer) {{");
+            sb.AppendLine($"    instance().write(&obj, writer);");
+            sb.AppendLine("}");
+
+            sb.AppendLine($"std::unique_ptr<{message.Name}> {message.Name}Serializer::deserialize(StreamReader& reader) {{");
+            sb.AppendLine($"    auto obj_ptr = std::unique_ptr<{message.Name}>(static_cast<{message.Name}*>(instance().read(reader)));");
+            sb.AppendLine($"    return obj_ptr;");
+            sb.AppendLine("}");
 
             sb.AppendLine("}} // namespace bitrpc");
 
@@ -321,7 +356,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var message in definition.Messages)
             {
-                sb.AppendLine($"    serializer.register_handler<{message.Name}>(std::make_shared<{message.Name}Serializer>());");
+                sb.AppendLine($"    serializer.register_handler<{message.Name}>(std::shared_ptr<TypeHandler>(&{message.Name}Serializer::instance(), [](TypeHandler*){{}}));");
             }
 
             sb.AppendLine("}");
@@ -728,47 +763,75 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"writer.write_vector(obj_ref.{field.Name}, [](const auto& x) {{ {GenerateCppWriteValue(field.Type, "x")} }});";
+                return $"writer.write_vector(obj_ref.{field.Name}, [](const auto& x) {{ {GenerateCppWriteValueForField(field, "x")} }});";
             }
 
-            return $"{GenerateCppWriteValue(field.Type, $"obj_ref.{field.Name}")};";
+            return $"{GenerateCppWriteValueForField(field, $"obj_ref.{field.Name}")};";
         }
 
-        private string GenerateCppWriteValue(FieldType type, string value)
+        private string GenerateCppWriteValueForField(ProtocolField field, string value)
         {
-            return type switch
+            if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
             {
-                FieldType.Int32 => $"writer.write_int32({value})",
-                FieldType.Int64 => $"writer.write_int64({value})",
-                FieldType.Float => $"writer.write_float({value})",
-                FieldType.Double => $"writer.write_double({value})",
-                FieldType.Bool => $"writer.write_bool({value})",
-                FieldType.String => $"writer.write_string({value})",
-                _ => $"writer.write_object({value})"
-            };
+                return $"{field.CustomType}Serializer::serialize({value}, writer)";
+            }
+
+            // For built-in types, use the singleton handler
+            var handlerName = GetSingletonHandlerForType(field.Type);
+            return $"{handlerName}.write(&{value}, writer)";
         }
 
         private string GenerateCppReadField(ProtocolField field)
         {
             if (field.IsRepeated)
             {
-                return $"obj_ptr->{field.Name} = reader.read_vector([]() {{ return {GenerateCppReadValue(field.Type)}; }});";
+                return $"obj_ptr->{field.Name} = reader.read_vector([]() {{ return {GenerateCppReadValueForField(field)}; }});";
             }
 
-            return $"obj_ptr->{field.Name} = {GenerateCppReadValue(field.Type)};";
+            return $"obj_ptr->{field.Name} = {GenerateCppReadValueForField(field)};";
         }
 
-        private string GenerateCppReadValue(FieldType type)
+        private string GenerateCppReadValueForField(ProtocolField field)
+        {
+            if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
+            {
+                return $"{field.CustomType}Serializer::deserialize(reader)";
+            }
+
+            // For built-in types, use the singleton handler
+            var handlerName = GetSingletonHandlerForType(field.Type);
+            return $"*static_cast<{GetCppTypeName(field.Type)}*>({handlerName}.read(reader))";
+        }
+
+        private string GetSingletonHandlerForType(FieldType type)
         {
             return type switch
             {
-                FieldType.Int32 => "reader.read_int32()",
-                FieldType.Int64 => "reader.read_int64()",
-                FieldType.Float => "reader.read_float()",
-                FieldType.Double => "reader.read_double()",
-                FieldType.Bool => "reader.read_bool()",
-                FieldType.String => "reader.read_string()",
-                _ => "reader.read_object()"
+                FieldType.Int32 => "Int32Handler::instance()",
+                FieldType.Int64 => "Int64Handler::instance()",
+                FieldType.Float => "FloatHandler::instance()",
+                FieldType.Double => "DoubleHandler::instance()",
+                FieldType.Bool => "BoolHandler::instance()",
+                FieldType.String => "StringHandler::instance()",
+                FieldType.DateTime => "DateTimeHandler::instance()",
+                FieldType.Vector3 => "Vector3Handler::instance()",
+                _ => throw new NotSupportedException($"Unsupported field type: {type}")
+            };
+        }
+
+        private string GetSingletonHandlerNameForType(FieldType type)
+        {
+            return type switch
+            {
+                FieldType.Int32 => "Int32Handler",
+                FieldType.Int64 => "Int64Handler",
+                FieldType.Float => "FloatHandler",
+                FieldType.Double => "DoubleHandler",
+                FieldType.Bool => "BoolHandler",
+                FieldType.String => "StringHandler",
+                FieldType.DateTime => "DateTimeHandler",
+                FieldType.Vector3 => "Vector3Handler",
+                _ => throw new NotSupportedException($"Unsupported field type: {type}")
             };
         }
 

@@ -16,7 +16,9 @@ set(SOURCES
     ../cpp/src/userinfo_serializer.cpp
     ../cpp/src/serializer_registry.cpp
     ../cpp/src/testservice_service_base.cpp
-    ../cpp/runtime/rpc_core.cpp
+    ../cpp/runtime/server.cpp
+    ../cpp/runtime/serialization.cpp
+    ../cpp/runtime/client.cpp
 )
 
 include_directories(../cpp/include)
