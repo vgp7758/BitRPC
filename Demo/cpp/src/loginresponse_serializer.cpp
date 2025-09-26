@@ -2,10 +2,10 @@
 // File: LoginResponse_serializer.cpp
 // Language: Cpp
 
-#include "Test::Protocol/loginresponse_serializer.h"
+#include "../include/loginresponse_serializer.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 int LoginResponseSerializer::hash_code() const {
     return 100275685;
@@ -58,16 +58,16 @@ void* LoginResponseSerializer::read(StreamReader& reader) const {
     }
     return obj_ptr.release();
 }
-};
 
-bool LoginResponseSerializer::is_default_bool(const bool& value) const {
-    return value == false;
-}
-bool LoginResponseSerializer::is_default_struct(const void*& value) const {
-    return value == ;
-}
-bool LoginResponseSerializer::is_default_string(const std::string& value) const {
-    return value == "";
-}
+private:
+    bool is_default_bool(const bool& value) const {
+        return value == false;
+    }
+    bool is_default_struct(const void*& value) const {
+        return value == ;
+    }
+    bool is_default_string(const std::string& value) const {
+        return value == "";
+    }
 
 }} // namespace bitrpc

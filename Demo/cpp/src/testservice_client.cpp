@@ -2,12 +2,12 @@
 // File: TestService_client.cpp
 // Language: Cpp
 
-#include "Test::Protocol/testservice_client.h"
+#include "../include/testservice_client.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
-TestServiceClient::TestServiceClient(std::shared_ptr<RpcClient> client)
+TestServiceClient::TestServiceClient(std::shared_ptr<IRpcClient> client)
     : BaseClient(client) {}
 
 std::future<LoginResponse> TestServiceClient::LoginAsync(const LoginRequest& request) {
@@ -22,4 +22,8 @@ std::future<EchoResponse> TestServiceClient::EchoAsync(const EchoRequest& reques
     return call_async<EchoRequest, EchoResponse>("TestService.Echo", request);
 }
 
+std::shared_ptr<TestServiceClient> TestServiceClient::create_tcp_client(const std::string& host, int port) {
+    auto tcp_client = RpcClientFactory::create_tcp_client_native(host, port);
+    return std::make_shared<TestServiceClient>(std::static_pointer_cast<IRpcClient>(tcp_client));
+}
 }} // namespace bitrpc

@@ -4,10 +4,11 @@
 
 #pragma once
 
+#include "./models.h"
 #include <future>
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 class ITestServiceService {
 public:

@@ -2,10 +2,10 @@
 // File: models.cpp
 // Language: Cpp
 
-#include "Test::Protocol/models.h"
+#include "../include/models.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 UserInfo::UserInfo() {
     user_id = 0;

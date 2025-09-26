@@ -2,18 +2,10 @@
 // File: serializer_registry.cpp
 // Language: Cpp
 
-#include <bitrpc/serialization/buffer_serializer.h>
-
-#include "Test::Protocol/userinfo_serializer.h"
-#include "Test::Protocol/loginrequest_serializer.h"
-#include "Test::Protocol/loginresponse_serializer.h"
-#include "Test::Protocol/getuserrequest_serializer.h"
-#include "Test::Protocol/getuserresponse_serializer.h"
-#include "Test::Protocol/echorequest_serializer.h"
-#include "Test::Protocol/echoresponse_serializer.h"
+#include "../include/serializer_registry.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 void register_serializers(BufferSerializer& serializer) {
     serializer.register_handler<UserInfo>(std::make_shared<UserInfoSerializer>());

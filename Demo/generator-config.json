@@ -1,28 +1,13 @@
 {
-  "protocolFile": "test_protocol.pdl",
-  "outputDirectory": ".",
-  "languages": [
+  "ProtocolFile": "D:/Projects/BitRPC/BitRPC/Demo/test_protocol.pdl",
+  "Languages": [
     {
-      "name": "csharp",
-      "enabled": true,
-      "namespace": "Test.Protocol",
-      "outputDirectory": ".",
-      "runtimePath": "../../Src/Serialization",
-      "clientRuntimePath": "../../Src/Client",
-      "serverRuntimePath": "../../Src/Server",
-      "specificOptions": {
-        "RuntimeSubdir": "runtime"
-      }
-    },
-    {
-      "name": "cpp",
-      "enabled": true,
-      "namespace": "Test.Protocol",
-      "outputDirectory": ".",
-      "runtimePath": "../../Src/C++Core",
-      "clientRuntimePath": "../../Src/C++Core",
-      "serverRuntimePath": "../../Src/C++Core",
-      "specificOptions": {
+      "Name": "cpp",
+      "Enabled": true,
+      "Namespace": "Test.Protocol",
+      "OutputDirectory": "D:/Projects/BitRPC/BitRPC/Demo",
+      "RuntimePath": "D:/Projects/BitRPC/BitRPC/Src/C++Core",
+      "SpecificOptions": {
         "RuntimeSubdir": "runtime",
         "Cpp": {
           "RuntimeIncludePrefix": "bitrpc",

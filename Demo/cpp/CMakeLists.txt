@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
-project(Test.ProtocolProtocol)
+project(test.protocolProtocol)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(include)
+include_directories("${CMAKE_CURRENT_LIST_DIR}/runtime")
 
 set(SOURCES
     src/models.cpp
@@ -23,5 +24,5 @@ set(SOURCES
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
 target_link_libraries(${PROJECT_NAME}
-    bitrpc::core
+    bitrpc_runtime
 )

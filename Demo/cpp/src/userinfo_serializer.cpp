@@ -2,10 +2,10 @@
 // File: UserInfo_serializer.cpp
 // Language: Cpp
 
-#include "Test::Protocol/userinfo_serializer.h"
+#include "../include/userinfo_serializer.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 int UserInfoSerializer::hash_code() const {
     return 1876671786;
@@ -72,19 +72,19 @@ void* UserInfoSerializer::read(StreamReader& reader) const {
     }
     return obj_ptr.release();
 }
-};
 
-bool UserInfoSerializer::is_default_int64(const int64_t& value) const {
-    return value == 0;
-}
-bool UserInfoSerializer::is_default_string(const std::string& value) const {
-    return value == "";
-}
-bool UserInfoSerializer::is_default_bool(const bool& value) const {
-    return value == false;
-}
-bool UserInfoSerializer::is_default_datetime(const std::chrono::system_clock::time_point& value) const {
-    return value == ;
-}
+private:
+    bool is_default_int64(const int64_t& value) const {
+        return value == 0;
+    }
+    bool is_default_string(const std::string& value) const {
+        return value == "";
+    }
+    bool is_default_bool(const bool& value) const {
+        return value == false;
+    }
+    bool is_default_datetime(const std::chrono::system_clock::time_point& value) const {
+        return value == ;
+    }
 
 }} // namespace bitrpc

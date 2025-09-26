@@ -94,7 +94,7 @@ namespace BitRPC.Protocol.Generator
         {
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader("models.cpp", options));
-            sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/models.h\"");
+            sb.AppendLine($"#include \"../include/models.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -149,8 +149,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("#pragma once");
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/serialization.h>");
-            sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/models.h\"");
+            sb.AppendLine($"#include \"./serializer_registry.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -179,7 +178,7 @@ namespace BitRPC.Protocol.Generator
         {
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{message.Name}_serializer.cpp", options));
-            sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/{message.Name.ToLower()}_serializer.h\"");
+            sb.AppendLine($"#include \"../include/{message.Name.ToLower()}_serializer.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -248,16 +247,16 @@ namespace BitRPC.Protocol.Generator
 
             sb.AppendLine("    return obj_ptr.release();");
             sb.AppendLine("}");
-            sb.AppendLine("};");
             sb.AppendLine();
 
             // Implement default check methods
+            sb.AppendLine("private:");
             var fieldTypes = message.Fields.Select(f => f.Type).Distinct();
             foreach (var fieldType in fieldTypes)
             {
-                sb.AppendLine($"bool {message.Name}Serializer::is_default_{fieldType.ToString().ToLower()}(const {GetCppTypeName(fieldType)}& value) const {{");
-                sb.AppendLine($"    return value == {GetCppDefaultValueForType(fieldType)};");
-                sb.AppendLine("}");
+                sb.AppendLine($"    bool is_default_{fieldType.ToString().ToLower()}(const {GetCppTypeName(fieldType)}& value) const {{");
+                sb.AppendLine($"        return value == {GetCppDefaultValueForType(fieldType)};");
+                sb.AppendLine("    }");
             }
             sb.AppendLine();
 
@@ -284,6 +283,16 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader("serializer_registry.h", options));
             sb.AppendLine("#pragma once");
             sb.AppendLine();
+
+            sb.AppendLine($"#include \"../runtime/serialization.h\"");
+            sb.AppendLine("#include \"./models.h\"");
+            
+            foreach (var message in definition.Messages)
+            {
+                sb.AppendLine($"#include \"./{message.Name.ToLower()}_serializer.h\"");
+            }
+            sb.AppendLine();
+
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine("class BufferSerializer;");
             sb.AppendLine("}");
@@ -303,15 +312,9 @@ namespace BitRPC.Protocol.Generator
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader("serializer_registry.cpp", options));
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/serialization.h>");
+            sb.AppendLine($"#include \"../include/serializer_registry.h\"");
             sb.AppendLine();
 
-            foreach (var message in definition.Messages)
-            {
-                sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/{message.Name.ToLower()}_serializer.h\"");
-            }
-
-            sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
@@ -355,7 +358,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("#pragma once");
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/client.h>");
+            sb.AppendLine($"#include \"../runtime/client.h\"");
+            sb.AppendLine($"#include \"./models.h\"");
             sb.AppendLine("#include <future>");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -382,7 +386,7 @@ namespace BitRPC.Protocol.Generator
         {
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{service.Name}_client.cpp", options));
-            sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/{service.Name.ToLower()}_client.h\"");
+            sb.AppendLine($"#include \"../include/{service.Name.ToLower()}_client.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -438,6 +442,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"i{service.Name}_service.h", options));
             sb.AppendLine("#pragma once");
             sb.AppendLine();
+            sb.AppendLine("#include \"./models.h\"");
             sb.AppendLine("#include <future>");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -466,8 +471,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("#pragma once");
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include <{runtimeInclude}/server.h>");
-            sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/i{service.Name.ToLower()}_service.h\"");
+            sb.AppendLine($"#include \"../runtime/server.h\"");
+            sb.AppendLine($"#include \"./i{service.Name.ToLower()}_service.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -503,7 +508,7 @@ namespace BitRPC.Protocol.Generator
         {
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{service.Name}_service_base.cpp", options));
-            sb.AppendLine($"#include \"{GetCppNamespace(options.Namespace)}/{service.Name.ToLower()}_service_base.h\"");
+            sb.AppendLine($"#include \"../include/{service.Name.ToLower()}_service_base.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -512,7 +517,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("    register_methods();");
             sb.AppendLine("}");
             sb.AppendLine();
-            sb.AppendLine("void {service.Name}ServiceBase::register_methods() {");
+            sb.AppendLine($"void {service.Name}ServiceBase::register_methods() {{");
 
             foreach (var method in service.Methods)
             {
@@ -545,11 +550,18 @@ namespace BitRPC.Protocol.Generator
         private void GenerateFactoryCode(ProtocolDefinition definition, GenerationOptions options, string baseDir)
         {
             var includeDir = Path.Combine(baseDir, "include");
+            var sourceDir = Path.Combine(baseDir, "src");
             EnsureDirectoryExists(includeDir);
+            EnsureDirectoryExists(sourceDir);
 
-            var filePath = Path.Combine(includeDir, "protocol_factory.h");
-            var content = GenerateProtocolFactory(definition, options);
-            File.WriteAllText(filePath, content);
+            var headerPath = Path.Combine(includeDir, "protocol_factory.h");
+            var sourcePath = Path.Combine(sourceDir, "protocol_factory.cpp");
+            
+            var headerContent = GenerateProtocolFactory(definition, options);
+            var sourceContent = GenerateProtocolFactorySource(definition, options);
+            
+            File.WriteAllText(headerPath, headerContent);
+            File.WriteAllText(sourcePath, sourceContent);
         }
 
         private string GenerateProtocolFactory(ProtocolDefinition definition, GenerationOptions options)
@@ -569,6 +581,27 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("public:");
             sb.AppendLine("    static void initialize();");
             sb.AppendLine("};");
+            sb.AppendLine();
+            sb.AppendLine("}} // namespace bitrpc");
+
+            return sb.ToString();
+        }
+
+        private string GenerateProtocolFactorySource(ProtocolDefinition definition, GenerationOptions options)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(GenerateFileHeader("protocol_factory.cpp", options));
+            sb.AppendLine($"#include \"./include/protocol_factory.h\"");
+            sb.AppendLine($"#include \"./include/serializer_registry.h\"");
+            sb.AppendLine($"#include \"./runtime/serialization.h\"");
+            sb.AppendLine();
+            sb.AppendLine("namespace bitrpc {");
+            sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
+            sb.AppendLine();
+            sb.AppendLine("void ProtocolFactory::initialize() {");
+            sb.AppendLine("    auto& serializer = BufferSerializer::instance();");
+            sb.AppendLine("    register_serializers(serializer);");
+            sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine("}} // namespace bitrpc");
 
@@ -622,6 +655,11 @@ namespace BitRPC.Protocol.Generator
         private string GetCppNamespace(string ns)
         {
             return string.IsNullOrEmpty(ns) ? "generated" : ns.Replace(".", "::");
+        }
+
+        private string GetCppIncludePath(string ns)
+        {
+            return string.IsNullOrEmpty(ns) ? "generated" : ns.Replace("::", "/").Replace(".", "/");
         }
 
         private string GetCppType(ProtocolField field)
@@ -749,8 +787,8 @@ namespace BitRPC.Protocol.Generator
                 }
             }
 
-            // default to external installation name
-            return "bitrpc";
+            // For generated code, use relative path to runtime directory
+            return ".";
         }
 
         private string GetRuntimeIncludeDirOption(GenerationOptions options)
@@ -763,7 +801,7 @@ namespace BitRPC.Protocol.Generator
                     return dir;
                 }
             }
-            return string.Empty;
+            return "runtime";
         }
     }
 }

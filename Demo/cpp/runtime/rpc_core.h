@@ -187,7 +187,11 @@ public:
     std::vector<uint8_t> call(const std::string& method, const std::vector<uint8_t>& request) override;
 
 private:
+#ifdef _WIN32
     void* socket_; // Platform-specific socket handle
+#else
+    int socket_; // Unix socket handle
+#endif
     bool connected_;
     void initialize_network();
     void cleanup_network();
@@ -226,7 +230,11 @@ public:
 
 private:
     std::unordered_map<std::string, std::shared_ptr<BaseService>> services_;
+#ifdef _WIN32
     void* server_socket_;
+#else
+    int server_socket_;
+#endif
     bool is_running_;
     std::vector<std::thread> client_threads_;
     std::mutex services_mutex_;

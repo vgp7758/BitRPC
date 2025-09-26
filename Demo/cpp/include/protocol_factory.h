@@ -9,7 +9,7 @@ class BufferSerializer;
 }
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 class ProtocolFactory {
 public:

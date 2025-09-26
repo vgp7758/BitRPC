@@ -10,7 +10,7 @@
 #include <chrono>
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 struct UserInfo {
 

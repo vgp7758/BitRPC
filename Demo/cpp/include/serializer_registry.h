@@ -4,12 +4,22 @@
 
 #pragma once
 
+#include "../runtime/serialization.h"
+#include "./models.h"
+#include "./userinfo_serializer.h"
+#include "./loginrequest_serializer.h"
+#include "./loginresponse_serializer.h"
+#include "./getuserrequest_serializer.h"
+#include "./getuserresponse_serializer.h"
+#include "./echorequest_serializer.h"
+#include "./echoresponse_serializer.h"
+
 namespace bitrpc {
 class BufferSerializer;
 }
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 void register_serializers(BufferSerializer& serializer);
 

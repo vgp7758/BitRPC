@@ -269,7 +269,7 @@ void* StreamReader::read_object() {
 }
 
 // TcpRpcClient implementation
-TcpRpcClient::TcpRpcClient() : socket_(INVALID_SOCKET), connected_(false) {
+TcpRpcClient::TcpRpcClient() : socket_(reinterpret_cast<void*>(INVALID_SOCKET)), connected_(false) {
     initialize_network();
 }
 
@@ -280,90 +280,94 @@ TcpRpcClient::~TcpRpcClient() {
 
 void TcpRpcClient::connect(const std::string& host, int port) {
     disconnect();
-    
-    struct addrinfo hints = {}, *result = nullptr;
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    
-    char port_str[16];
-    snprintf(port_str, sizeof(port_str), "%d", port);
-    
-    if (getaddrinfo(host.c_str(), port_str, &hints, &result) != 0) {
-        throw std::runtime_error("Failed to resolve host");
-    }
-    
-    socket_ = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-    if (socket_ == INVALID_SOCKET) {
-        freeaddrinfo(result);
+
+    socket_ = reinterpret_cast<void*>(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
+    if (reinterpret_cast<SOCKET>(socket_) == INVALID_SOCKET) {
         throw std::runtime_error("Failed to create socket");
     }
-    
-    if (::connect(socket_, result->ai_addr, result->ai_addrlen) == SOCKET_ERROR) {
-        closesocket(socket_);
-        socket_ = INVALID_SOCKET;
+
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+
+    if (inet_pton(AF_INET, host.c_str(), &server_addr.sin_addr) <= 0) {
+        // Try to resolve hostname
+        addrinfo hints{}, *result;
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+
+        if (getaddrinfo(host.c_str(), nullptr, &hints, &result) != 0) {
+            closesocket(reinterpret_cast<SOCKET>(socket_));
+            socket_ = reinterpret_cast<void*>(INVALID_SOCKET);
+            throw std::runtime_error("Failed to resolve host: " + host);
+        }
+
+        sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(result->ai_addr);
+        server_addr.sin_addr = addr_in->sin_addr;
         freeaddrinfo(result);
+    }
+
+    if (::connect(reinterpret_cast<SOCKET>(socket_), reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) == SOCKET_ERROR) {
+        closesocket(reinterpret_cast<SOCKET>(socket_));
+        socket_ = reinterpret_cast<void*>(INVALID_SOCKET);
         throw std::runtime_error("Failed to connect to server");
     }
-    
-    freeaddrinfo(result);
+
     connected_ = true;
 }
 
 void TcpRpcClient::disconnect() {
-    if (socket_ != INVALID_SOCKET) {
-        closesocket(socket_);
-        socket_ = INVALID_SOCKET;
+    if (socket_ != reinterpret_cast<void*>(INVALID_SOCKET)) {
+        closesocket(reinterpret_cast<SOCKET>(socket_));
+        socket_ = reinterpret_cast<void*>(INVALID_SOCKET);
     }
     connected_ = false;
 }
 
 bool TcpRpcClient::is_connected() const {
-    return connected_;
+    return connected_ && socket_ != reinterpret_cast<void*>(INVALID_SOCKET);
 }
 
 std::vector<uint8_t> TcpRpcClient::call(const std::string& method, const std::vector<uint8_t>& request) {
-    if (!connected_) {
+    if (!is_connected()) {
         throw std::runtime_error("Client is not connected");
     }
-    
-    // Write method name and request
-    bitrpc::StreamWriter writer;
+
+    // Send request
+    StreamWriter writer;
     writer.write_string(method);
     writer.write_bytes(request);
-    
     auto data = writer.to_array();
-    
-    // Send length prefix
+
     uint32_t length = static_cast<uint32_t>(data.size());
-    if (send(socket_, reinterpret_cast<const char*>(&length), sizeof(length), 0) != sizeof(length)) {
-        throw std::runtime_error("Failed to send length");
+    if (send(reinterpret_cast<SOCKET>(socket_), reinterpret_cast<const char*>(&length), sizeof(length), 0) == SOCKET_ERROR) {
+        throw std::runtime_error("Failed to send request length");
     }
-    
-    // Send data
-    if (send(socket_, reinterpret_cast<const char*>(data.data()), data.size(), 0) != static_cast<int>(data.size())) {
-        throw std::runtime_error("Failed to send data");
+
+    if (send(reinterpret_cast<SOCKET>(socket_), reinterpret_cast<const char*>(data.data()), data.size(), 0) == SOCKET_ERROR) {
+        throw std::runtime_error("Failed to send request data");
     }
-    
+
     // Read response length
     uint32_t response_length;
-    if (recv(socket_, reinterpret_cast<char*>(&response_length), sizeof(response_length), 0) != sizeof(response_length)) {
+    if (recv(reinterpret_cast<SOCKET>(socket_), reinterpret_cast<char*>(&response_length), sizeof(response_length), 0) != sizeof(response_length)) {
         throw std::runtime_error("Failed to read response length");
     }
-    
+
     // Read response data
-    std::vector<uint8_t> response(response_length);
-    size_t total_read = 0;
-    while (total_read < response_length) {
-        int bytes_read = recv(socket_, reinterpret_cast<char*>(response.data() + total_read), 
-                               response_length - total_read, 0);
-        if (bytes_read <= 0) {
+    std::vector<uint8_t> response_data(response_length);
+    size_t total_received = 0;
+    while (total_received < response_length) {
+        int bytes_received = recv(reinterpret_cast<SOCKET>(socket_), 
+                                 reinterpret_cast<char*>(response_data.data() + total_received),
+                                 response_length - total_received, 0);
+        if (bytes_received <= 0) {
             throw std::runtime_error("Failed to read response data");
         }
-        total_read += bytes_read;
+        total_received += bytes_received;
     }
-    
-    return response;
+
+    return response_data;
 }
 
 // TypeHandler implementations
@@ -457,7 +461,7 @@ void* ServiceBase::call_method(const std::string& method_name, void* request) {
 }
 
 // TcpRpcServer implementation
-TcpRpcServer::TcpRpcServer() : server_socket_(INVALID_SOCKET), is_running_(false) {
+TcpRpcServer::TcpRpcServer() : server_socket_(reinterpret_cast<void*>(INVALID_SOCKET)), is_running_(false) {
     initialize_network();
 }
 
@@ -476,28 +480,28 @@ void TcpRpcServer::start(int port) {
         return;
     }
 
-    server_socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (server_socket_ == INVALID_SOCKET) {
+    server_socket_ = reinterpret_cast<void*>(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
+    if (reinterpret_cast<SOCKET>(server_socket_) == INVALID_SOCKET) {
         throw std::runtime_error("Failed to create server socket");
     }
 
     int opt = 1;
-    setsockopt(server_socket_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&opt), sizeof(opt));
+    setsockopt(reinterpret_cast<SOCKET>(server_socket_), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&opt), sizeof(opt));
 
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(port);
 
-    if (bind(server_socket_, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) == SOCKET_ERROR) {
-        closesocket(server_socket_);
-        server_socket_ = INVALID_SOCKET;
+    if (bind(reinterpret_cast<SOCKET>(server_socket_), reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) == SOCKET_ERROR) {
+        closesocket(reinterpret_cast<SOCKET>(server_socket_));
+        server_socket_ = reinterpret_cast<void*>(INVALID_SOCKET);
         throw std::runtime_error("Failed to bind server socket");
     }
 
-    if (listen(server_socket_, SOMAXCONN) == SOCKET_ERROR) {
-        closesocket(server_socket_);
-        server_socket_ = INVALID_SOCKET;
+    if (listen(reinterpret_cast<SOCKET>(server_socket_), SOMAXCONN) == SOCKET_ERROR) {
+        closesocket(reinterpret_cast<SOCKET>(server_socket_));
+        server_socket_ = reinterpret_cast<void*>(INVALID_SOCKET);
         throw std::runtime_error("Failed to listen on server socket");
     }
 
@@ -510,7 +514,7 @@ void TcpRpcServer::start(int port) {
             sockaddr_in client_addr{};
             socklen_t client_len = sizeof(client_addr);
 
-            SOCKET client_socket = accept(server_socket_, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
+            SOCKET client_socket = accept(reinterpret_cast<SOCKET>(server_socket_), reinterpret_cast<sockaddr*>(&client_addr), &client_len);
             if (client_socket == INVALID_SOCKET) {
                 if (is_running_) {
                     std::cerr << "Failed to accept client connection" << std::endl;
@@ -533,9 +537,9 @@ void TcpRpcServer::stop() {
 
     is_running_ = false;
 
-    if (server_socket_ != INVALID_SOCKET) {
-        closesocket(server_socket_);
-        server_socket_ = INVALID_SOCKET;
+    if (server_socket_ != reinterpret_cast<void*>(INVALID_SOCKET)) {
+        closesocket(reinterpret_cast<SOCKET>(server_socket_));
+        server_socket_ = reinterpret_cast<void*>(INVALID_SOCKET);
     }
 
     // Wait for all client threads to finish

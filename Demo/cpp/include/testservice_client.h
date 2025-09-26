@@ -4,15 +4,16 @@
 
 #pragma once
 
-#include <bitrpc/client/base_client.h>
+#include "../runtime/client.h"
+#include "./models.h"
 #include <future>
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 class TestServiceClient : public BaseClient {
 public:
-    explicit TestServiceClient(std::shared_ptr<RpcClient> client);
+    explicit TestServiceClient(std::shared_ptr<IRpcClient> client);
 
     std::future<LoginResponse> LoginAsync(const LoginRequest& request);
     std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request);

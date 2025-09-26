@@ -1,17 +1,13 @@
 {
-  "ProtocolFile": "D:/Projects/076/hagc076_client/BitRPC/Protocols/scene3d.pdl",
-  "OutputDirectory": "D:/Projects/076/hagc076_client/BitRPC/Generated/python",
+  "ProtocolFile": "../../Demo/test_protocol.pdl",
+  "OutputDirectory": "../../Demo",
   "Languages": [
     {
-      "Name": "python",
+      "Name": "Cpp",
       "Enabled": true,
-      "Namespace": "bitrpc",
-      "RuntimePath": ".",
-      "SpecificOptions": {
-        "GenerateSerialization": true,
-        "GenerateClientServer": true,
-        "GenerateFactories": false
-      }
+      "Namespace": "Test::Protocol",
+      "RuntimePath": "../../Src/C++Core",
+      "OutputDirectory": "../../Demo/cpp"
     }
   ]
 }

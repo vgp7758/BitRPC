@@ -2,10 +2,10 @@
 // File: EchoResponse_serializer.cpp
 // Language: Cpp
 
-#include "Test::Protocol/echoresponse_serializer.h"
+#include "../include/echoresponse_serializer.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 int EchoResponseSerializer::hash_code() const {
     return 361075971;
@@ -51,13 +51,13 @@ void* EchoResponseSerializer::read(StreamReader& reader) const {
     }
     return obj_ptr.release();
 }
-};
 
-bool EchoResponseSerializer::is_default_string(const std::string& value) const {
-    return value == "";
-}
-bool EchoResponseSerializer::is_default_int64(const int64_t& value) const {
-    return value == 0;
-}
+private:
+    bool is_default_string(const std::string& value) const {
+        return value == "";
+    }
+    bool is_default_int64(const int64_t& value) const {
+        return value == 0;
+    }
 
 }} // namespace bitrpc

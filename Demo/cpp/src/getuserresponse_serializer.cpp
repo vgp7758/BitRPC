@@ -2,10 +2,10 @@
 // File: GetUserResponse_serializer.cpp
 // Language: Cpp
 
-#include "Test::Protocol/getuserresponse_serializer.h"
+#include "../include/getuserresponse_serializer.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 int GetUserResponseSerializer::hash_code() const {
     return 523096643;
@@ -44,13 +44,13 @@ void* GetUserResponseSerializer::read(StreamReader& reader) const {
     }
     return obj_ptr.release();
 }
-};
 
-bool GetUserResponseSerializer::is_default_struct(const void*& value) const {
-    return value == ;
-}
-bool GetUserResponseSerializer::is_default_bool(const bool& value) const {
-    return value == false;
-}
+private:
+    bool is_default_struct(const void*& value) const {
+        return value == ;
+    }
+    bool is_default_bool(const bool& value) const {
+        return value == false;
+    }
 
 }} // namespace bitrpc

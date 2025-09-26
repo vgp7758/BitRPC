@@ -20,7 +20,6 @@ namespace BitRPC.GeneratorApp
     public class GeneratorConfig
     {
         public string ProtocolFile { get; set; }
-        public string OutputDirectory { get; set; }
         public List<LanguageConfig> Languages { get; set; }
     }
 
@@ -62,7 +61,7 @@ namespace BitRPC.GeneratorApp
                 {
                     if (lang.Enabled)
                     {
-                        var outputDir = Path.Combine(lang.OutputDirectory ?? config.OutputDirectory, lang.Name);
+                        var outputDir = lang.OutputDirectory;
                         var options = new GenerationOptions
                         {
                             Language = (TargetLanguage)Enum.Parse(typeof(TargetLanguage), lang.Name, true),
@@ -115,7 +114,6 @@ namespace BitRPC.GeneratorApp
                 generator.GenerateMultiple(config.ProtocolFile, optionsList);
 
                 Console.WriteLine($"Successfully generated code for '{config.ProtocolFile}'");
-                Console.WriteLine($"Output directory: {config.OutputDirectory}");
                 
                 var generatedLanguages = new List<string>();
                 foreach (var lang in config.Languages)

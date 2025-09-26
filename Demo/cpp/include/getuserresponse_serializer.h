@@ -4,11 +4,10 @@
 
 #pragma once
 
-#include <bitrpc/serialization/type_handler.h>
-#include "Test::Protocol/models.h"
+#include "./serializer_registry.h"
 
 namespace bitrpc {
-namespace Test::Protocol {
+namespace test::protocol {
 
 class GetUserResponseSerializer : public TypeHandler {
 public:
