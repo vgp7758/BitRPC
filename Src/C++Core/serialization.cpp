@@ -55,6 +55,83 @@ void* BufferSerializer::deserialize_impl(StreamReader& reader) {
     return nullptr;
 }
 
+// Int32Handler implementation
+void Int32Handler::write(const void* obj, StreamWriter& writer) const {
+    auto value = static_cast<const int32_t*>(obj);
+    writer.write_int32(*value);
+}
+
+void* Int32Handler::read(StreamReader& reader) const {
+    auto value = reader.read_int32();
+    return new int32_t(value);
+}
+
+// Int64Handler implementation
+void Int64Handler::write(const void* obj, StreamWriter& writer) const {
+    auto value = static_cast<const int64_t*>(obj);
+    writer.write_int64(*value);
+}
+
+void* Int64Handler::read(StreamReader& reader) const {
+    auto value = reader.read_int64();
+    return new int64_t(value);
+}
+
+// FloatHandler implementation
+void FloatHandler::write(const void* obj, StreamWriter& writer) const {
+    auto value = static_cast<const float*>(obj);
+    writer.write_float(*value);
+}
+
+void* FloatHandler::read(StreamReader& reader) const {
+    auto value = reader.read_float();
+    return new float(value);
+}
+
+// DoubleHandler implementation
+void DoubleHandler::write(const void* obj, StreamWriter& writer) const {
+    auto value = static_cast<const double*>(obj);
+    writer.write_double(*value);
+}
+
+void* DoubleHandler::read(StreamReader& reader) const {
+    auto value = reader.read_double();
+    return new double(value);
+}
+
+// BoolHandler implementation
+void BoolHandler::write(const void* obj, StreamWriter& writer) const {
+    auto value = static_cast<const bool*>(obj);
+    writer.write_bool(*value);
+}
+
+void* BoolHandler::read(StreamReader& reader) const {
+    auto value = reader.read_bool();
+    return new bool(value);
+}
+
+// StringHandler implementation
+void StringHandler::write(const void* obj, StreamWriter& writer) const {
+    auto value = static_cast<const std::string*>(obj);
+    writer.write_string(*value);
+}
+
+void* StringHandler::read(StreamReader& reader) const {
+    auto value = reader.read_string();
+    return new std::string(std::move(value));
+}
+
+// BytesHandler implementation
+void BytesHandler::write(const void* obj, StreamWriter& writer) const {
+    auto value = static_cast<const std::vector<uint8_t>*>(obj);
+    writer.write_bytes(*value);
+}
+
+void* BytesHandler::read(StreamReader& reader) const {
+    auto value = reader.read_bytes();
+    return new std::vector<uint8_t>(std::move(value));
+}
+
 // DateTimeHandler implementation
 void DateTimeHandler::write(const void* obj, StreamWriter& writer) const {
     auto time_point = static_cast<const std::chrono::system_clock::time_point*>(obj);
