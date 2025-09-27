@@ -37,6 +37,23 @@ namespace BitRPC.Protocol.Generator
             GenerateCMakeFile(definition, options, baseDir);
         }
 
+        // Stable 32-bit FNV-1a hash (same algorithm as C# generator) for cross-language stability
+        private static int ComputeStableHash(string text)
+        {
+            unchecked
+            {
+                const uint fnvOffset = 2166136261;
+                const uint fnvPrime = 16777619;
+                uint hash = fnvOffset;
+                foreach (var c in text)
+                {
+                    hash ^= c;
+                    hash *= fnvPrime;
+                }
+                return (int)hash;
+            }
+        }
+
         private void GenerateDataStructures(ProtocolDefinition definition, GenerationOptions options, string baseDir)
         {
             var includeDir = Path.Combine(baseDir, "include");
@@ -172,22 +189,37 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"    static void serialize(const {message.Name}& obj, StreamWriter& writer);");
             sb.AppendLine($"    static std::unique_ptr<{message.Name}> deserialize(StreamReader& reader);");
             sb.AppendLine();
-            sb.AppendLine("private:");
             sb.AppendLine("};");
-            // sb.AppendLine();
-            // sb.AppendLine("} // namespace bitrpc");
-
-            // Generate public is_default method for the entire type
-            // sb.AppendLine($"namespace bitrpc {{");
-            // sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
+            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}* value);");
+            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}& value);");
+            sb.AppendLine();
+            sb.AppendLine("}} // namespace bitrpc");
+
+            return sb.ToString();
+        }
+
+        private string GenerateMessageSerializerSource(ProtocolMessage message, GenerationOptions options)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(GenerateFileHeader($"{message.Name}_serializer.cpp", options));
+            sb.AppendLine($"#include \"../include/{message.Name.ToLower()}_serializer.h\"");
+            sb.AppendLine();
+            sb.AppendLine("namespace bitrpc {");
+            sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
+            sb.AppendLine();
+
+            // Pre-compute stable hash in generator and embed constant
+            var stableHash = ComputeStableHash(message.Name);
+            sb.AppendLine($"int {message.Name}Serializer::hash_code() const {{");
+            sb.AppendLine($"    return {stableHash};");
+            sb.AppendLine("}");
+            sb.AppendLine();
+
+            // Generate is_default helpers implementation (inline for now)
             sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}* value) {{");
-            sb.AppendLine($"    // For null objects, consider as default");
-            sb.AppendLine($"    if (value == nullptr) return true;");
-            sb.AppendLine();
-            sb.AppendLine($"    // For objects, check if any field is non-default");
-            sb.AppendLine($"    const auto& obj = *value;");
-
+            sb.AppendLine("    if (value == nullptr) return true;");
+            sb.AppendLine("    const auto& obj = *value;");
             foreach (var field in message.Fields)
             {
                 if (field.IsRepeated)
@@ -204,126 +236,100 @@ namespace BitRPC.Protocol.Generator
                     sb.AppendLine($"    if (obj.{field.Name} != {defaultValue}) return false;");
                 }
             }
-
-            sb.AppendLine($"    return true;");
+            sb.AppendLine("    return true;");
             sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}& value) {{");
             sb.AppendLine($"    return is_default_{message.Name.ToLower()}(&value);");
             sb.AppendLine("}");
             sb.AppendLine();
-            sb.AppendLine("}} // namespace bitrpc");
 
-            return sb.ToString();
-        }
+            // Field grouping based on field.Id (align with C#)
+            var fieldGroups = message.Fields.Select(f => new { Field = f, Index = f.Id - 1 })
+                                            .GroupBy(x => x.Index / 32)
+                                            .ToList();
+            int groupCount = fieldGroups.Count;
 
-        private string GenerateMessageSerializerSource(ProtocolMessage message, GenerationOptions options)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine(GenerateFileHeader($"{message.Name}_serializer.cpp", options));
-            sb.AppendLine($"#include \"../include/{message.Name.ToLower()}_serializer.h\"");
-            sb.AppendLine();
-            sb.AppendLine("namespace bitrpc {");
-            sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
-            sb.AppendLine();
-            sb.AppendLine($"int {message.Name}Serializer::hash_code() const {{");
-            sb.AppendLine($"    return {HashCodeHelper.ComputeHashCode(message.Name)};");
-            sb.AppendLine("}");
-            sb.AppendLine();
             sb.AppendLine($"void {message.Name}Serializer::write(const void* obj, StreamWriter& writer) const {{");
             sb.AppendLine($"    const auto& obj_ref = *static_cast<const {message.Name}*>(obj);");
-            sb.AppendLine("    BitMask mask;");
+            sb.AppendLine("    // Bit mask aggregation using discrete uint32_t variables");
+            for (int g = 0; g < groupCount; g++)
+            {
+                sb.AppendLine($"    uint32_t mask{g} = 0;");
+            }
             sb.AppendLine();
 
-            var fieldGroups = message.Fields.Select((f, i) => new { Field = f, Index = i })
-                                           .GroupBy(x => x.Index / 32)
-                                           .ToList();
-
-            for (int group = 0; group < fieldGroups.Count; group++)
+            // Set bits
+            for (int group = 0; group < groupCount; group++)
             {
                 var fields = fieldGroups[group].ToList();
-                sb.AppendLine($"    // Bit mask group {group}");
                 foreach (var fieldInfo in fields)
                 {
                     var field = fieldInfo.Field;
-                    var bitIndex = fieldInfo.Index % 32;
-
+                    int bitPos = fieldInfo.Index % 32;
                     if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
                     {
-                        // For struct fields, use the public is_default method
-                        sb.AppendLine($"    mask.set_bit({bitIndex}, !is_default_{field.CustomType.ToLower()}(&obj_ref.{field.Name}));");
+                        sb.AppendLine($"    if (!is_default_{field.CustomType.ToLower()}(&obj_ref.{field.Name})) mask{group} |= (1u << {bitPos});");
                     }
                     else if (field.IsRepeated)
                     {
-                        // For repeated fields, check if vector is empty
-                        sb.AppendLine($"    mask.set_bit({bitIndex}, !obj_ref.{field.Name}.empty());");
+                        sb.AppendLine($"    if (!obj_ref.{field.Name}.empty()) mask{group} |= (1u << {bitPos});");
                     }
                     else
                     {
-                        // For built-in types, compare with default value
                         var defaultValue = GetCppDefaultValueForType(field.Type);
-                        sb.AppendLine($"    mask.set_bit({bitIndex}, !(obj_ref.{field.Name} == {defaultValue}));");
+                        sb.AppendLine($"    if (!(obj_ref.{field.Name} == {defaultValue})) mask{group} |= (1u << {bitPos});");
                     }
                 }
-                sb.AppendLine($"    mask.write(writer);");
-                sb.AppendLine();
             }
-
-            sb.AppendLine("    // Write field values");
+            sb.AppendLine();
+            sb.AppendLine("    // Write mask groups in order");
+            for (int g = 0; g < groupCount; g++)
+            {
+                sb.AppendLine($"    writer.write_uint32(mask{g});");
+            }
+            sb.AppendLine();
+            sb.AppendLine("    // Write field values guarded by mask bits");
             foreach (var field in message.Fields)
             {
-                var fieldIndex = message.Fields.IndexOf(field);
-                var bitIndex = fieldIndex % 32;
-                sb.AppendLine($"    if (mask.get_bit({bitIndex})) {{");
+                int index = field.Id - 1;
+                int group = index / 32;
+                int bitPos = index % 32;
+                sb.AppendLine($"    if (mask{group} & (1u << {bitPos})) {{");
                 sb.AppendLine($"        {GenerateCppWriteField(field)}");
                 sb.AppendLine("    }");
             }
-
             sb.AppendLine("}");
             sb.AppendLine();
+
             sb.AppendLine($"void* {message.Name}Serializer::read(StreamReader& reader) const {{");
             sb.AppendLine($"    auto obj_ptr = std::make_unique<{message.Name}>();");
-            sb.AppendLine();
-
-            for (int group = 0; group < fieldGroups.Count; group++)
+            for (int g = 0; g < groupCount; g++)
             {
-                var fields = fieldGroups[group].ToList();
-                sb.AppendLine($"    // Read bit mask group {group}");
-                sb.AppendLine($"    BitMask mask{group};");
-                sb.AppendLine($"    mask{group}.read(reader);");
-                sb.AppendLine();
+                sb.AppendLine($"    uint32_t mask{g} = reader.read_uint32();");
             }
-
+            sb.AppendLine();
             foreach (var field in message.Fields)
             {
-                var fieldIndex = message.Fields.IndexOf(field);
-                var groupIndex = fieldIndex / 32;
-                var bitIndex = fieldIndex % 32;
-                sb.AppendLine($"    if (mask{groupIndex}.get_bit({bitIndex})) {{");
+                int index = field.Id - 1;
+                int group = index / 32;
+                int bitPos = index % 32;
+                sb.AppendLine($"    if (mask{group} & (1u << {bitPos})) {{");
                 sb.AppendLine($"        {GenerateCppReadField(field)}");
                 sb.AppendLine("    }");
             }
-
             sb.AppendLine("    return obj_ptr.release();");
             sb.AppendLine("}");
             sb.AppendLine();
 
-            // // is_default method implementation
-            // sb.AppendLine($"bool {message.Name}Serializer::is_default(const void* obj) const {{");
-            // sb.AppendLine($"    return is_default_{message.Name.ToLower()}(static_cast<const {message.Name}*>(obj));");
-            // sb.AppendLine("}");
-            // sb.AppendLine();
-
-            // Static convenience methods
             sb.AppendLine($"void {message.Name}Serializer::serialize(const {message.Name}& obj, StreamWriter& writer) {{");
-            sb.AppendLine($"    instance().write(&obj, writer);");
+            sb.AppendLine("    instance().write(&obj, writer);");
             sb.AppendLine("}");
-
+            sb.AppendLine();
             sb.AppendLine($"std::unique_ptr<{message.Name}> {message.Name}Serializer::deserialize(StreamReader& reader) {{");
-            sb.AppendLine($"    auto obj_ptr = std::unique_ptr<{message.Name}>(static_cast<{message.Name}*>(instance().read(reader)));");
-            sb.AppendLine($"    return obj_ptr;");
+            sb.AppendLine($"    auto obj_ptr = std::unique_ptr<{message.Name}>(static_cast<{message.Name}*>(instance().read(reader)));\n    return obj_ptr;");
             sb.AppendLine("}");
-
+            sb.AppendLine();
             sb.AppendLine("}} // namespace bitrpc");
 
             return sb.ToString();
@@ -557,7 +563,6 @@ namespace BitRPC.Protocol.Generator
             }
 
             sb.AppendLine($"    static void register_with_manager(ServiceManager& manager);");
-
             sb.AppendLine();
             sb.AppendLine("protected:");
             sb.AppendLine("    void register_methods();");
@@ -592,7 +597,6 @@ namespace BitRPC.Protocol.Generator
             foreach (var method in service.Methods)
             {
                 sb.AppendLine($"    register_async_method(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
-                // sb.AppendLine($"    register_async_method(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
                 sb.AppendLine($"        return {method.Name}Async_impl(request);");
                 sb.AppendLine("    });");
             }
@@ -612,7 +616,6 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"    manager.register_service(std::make_shared<{service.Name}ServiceBase>());");
             sb.AppendLine("}");
             sb.AppendLine();
-
             sb.AppendLine("}} // namespace bitrpc");
 
             return sb.ToString();
@@ -693,7 +696,7 @@ namespace BitRPC.Protocol.Generator
             var runtimeIncludeDir = GetRuntimeIncludeDirOption(options);
             if (!string.IsNullOrWhiteSpace(runtimeIncludeDir))
             {
-                sb.AppendLine($"include_directories(\"${{CMAKE_CURRENT_LIST_DIR}}/{runtimeIncludeDir}\")");
+                sb.AppendLine("include_directories(\"${CMAKE_CURRENT_LIST_DIR}/" + runtimeIncludeDir + "\")");
             }
             sb.AppendLine();
             sb.AppendLine("set(SOURCES");

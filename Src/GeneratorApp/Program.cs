@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using Newtonsoft.Json;
+#pragma warning disable CS8603 // 解引用可能出现空引用。
+using System.Text.Json;
 using BitRPC.Protocol.Generator;
-using BitRPC.Protocol.Parser;
 
 namespace BitRPC.GeneratorApp
 {
@@ -45,7 +42,21 @@ namespace BitRPC.GeneratorApp
             try
             {
                 var configContent = File.ReadAllText(configPath);
-                var config = JsonConvert.DeserializeObject<GeneratorConfig>(configContent);
+                var config = JsonSerializer.Deserialize<GeneratorConfig>(configContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    AllowTrailingCommas = true,
+                    ReadCommentHandling = JsonCommentHandling.Skip
+                });
+
+                if (config == null)
+                {
+                    Console.WriteLine("Error: Failed to parse config file.");
+                    return;
+                }
+
+                // Normalize any JsonElement inside SpecificOptions to native CLR types (string/int/bool/dict/list)
+                NormalizeSpecificOptions(config);
 
 #pragma warning disable CS8602 // 解引用可能出现空引用。
                 if (!File.Exists(config.ProtocolFile))
@@ -56,9 +67,8 @@ namespace BitRPC.GeneratorApp
 #pragma warning restore CS8602 // 解引用可能出现空引用。
 
                 var generator = new ProtocolGenerator();
-                
                 var optionsList = new List<GenerationOptions>();
-                
+
                 foreach (var lang in config.Languages)
                 {
                     if (lang.Enabled)
@@ -108,7 +118,7 @@ namespace BitRPC.GeneratorApp
                                 }
                             }
                         }
-                        
+
                         optionsList.Add(options);
                     }
                 }
@@ -116,7 +126,7 @@ namespace BitRPC.GeneratorApp
                 generator.GenerateMultiple(config.ProtocolFile, optionsList);
 
                 Console.WriteLine($"Successfully generated code for '{config.ProtocolFile}'");
-                
+
                 var generatedLanguages = new List<string>();
                 foreach (var lang in config.Languages)
                 {
@@ -132,6 +142,90 @@ namespace BitRPC.GeneratorApp
                 Console.WriteLine($"Error: {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
             }
+        }
+
+        private static void NormalizeSpecificOptions(GeneratorConfig config)
+        {
+            if (config?.Languages == null) return;
+            foreach (var lang in config.Languages)
+            {
+                if (lang.SpecificOptions != null)
+                {
+                    lang.SpecificOptions = NormalizeDict(lang.SpecificOptions);
+                }
+            }
+        }
+
+        private static Dictionary<string, object> NormalizeDict(Dictionary<string, object> dict)
+        {
+            var result = new Dictionary<string, object>();
+            foreach (var kvp in dict)
+            {
+                result[kvp.Key] = NormalizeValue(kvp.Value);
+            }
+            return result;
+        }
+
+        private static object NormalizeValue(object val)
+        {
+            if (val == null) return null;
+
+            if (val is Dictionary<string, object> nestedDict)
+            {
+                return NormalizeDict(nestedDict);
+            }
+
+            if (val is List<object> list)
+            {
+                for (int i = 0; i < list.Count; i++)
+                {
+                    list[i] = NormalizeValue(list[i]);
+                }
+                return list;
+            }
+
+            if (val is JsonElement el)
+            {
+                switch (el.ValueKind)
+                {
+                    case JsonValueKind.Object:
+                    {
+                        var objDict = new Dictionary<string, object>();
+                        foreach (var prop in el.EnumerateObject())
+                        {
+                            objDict[prop.Name] = NormalizeValue(prop.Value);
+                        }
+                        return objDict;
+                    }
+                    case JsonValueKind.Array:
+                    {
+                        var arr = new List<object>();
+                        foreach (var item in el.EnumerateArray())
+                        {
+                            arr.Add(NormalizeValue(item));
+                        }
+                        return arr;
+                    }
+                    case JsonValueKind.String:
+                        return el.GetString();
+                    case JsonValueKind.Number:
+                        if (el.TryGetInt32(out int i)) return i;
+                        if (el.TryGetInt64(out long l)) return l;
+                        if (el.TryGetDouble(out double d)) return d;
+                        return el.GetRawText();
+                    case JsonValueKind.True:
+                        return true;
+                    case JsonValueKind.False:
+                        return false;
+                    case JsonValueKind.Null:
+                    case JsonValueKind.Undefined:
+                        return null;
+                    default:
+                        return el.GetRawText();
+                }
+            }
+
+            return val; // already primitive or desired type
         }
 
         private static string GetRuntimeSubdir(GenerationOptions options)
@@ -206,3 +300,4 @@ namespace BitRPC.GeneratorApp
         }
     }
 }
+#pragma warning restore CS8603 // 解引用可能出现空引用。
