@@ -13,6 +13,9 @@
 
 namespace bitrpc {
 
+// Forward declarations
+class ServiceManager;
+
 // Unified RPC Server interface
 class IRpcServer {
 public:
@@ -126,7 +129,7 @@ void BaseService::register_async_method(const std::string& method_name,
         auto typed_request = static_cast<const TRequest*>(request);
         auto future_result = method(*typed_request);
 
-        return std::async(std::launch::async, [future_result]() -> void* {
+        return std::async(std::launch::async, [future_result = std::move(future_result)]() mutable -> void* {
             auto result = future_result.get();
             return new TResponse(std::move(result));
         });

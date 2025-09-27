@@ -107,17 +107,17 @@ std::future<TResponse> BaseClient::call_async(const std::string& method, const T
     // Serialize request
     auto& serializer = BufferSerializer::instance();
     StreamWriter writer;
-    serializer.serialize(&request, writer, typeid(TRequest).hash_code());
+    serializer.serialize(&request, writer);
     auto request_data = writer.to_array();
 
     // Make async call
     auto future = client_->call_async(method, request_data);
 
     // Transform future to return TResponse
-    return std::async(std::launch::async, [future, &serializer]() -> TResponse {
+    return std::async(std::launch::async, [future = std::move(future), &serializer]() mutable -> TResponse {
         auto response_data = future.get();
         StreamReader reader(response_data);
-        auto response_ptr = static_cast<TResponse*>(serializer.deserialize(reader));
+        auto response_ptr = serializer.deserialize<TResponse>(reader);
         return std::move(*response_ptr);
     });
 }

@@ -16,6 +16,8 @@ namespace bitrpc {
 // Forward declarations
 class StreamReader;
 class StreamWriter;
+template<typename T>
+class StructTypeHandler;
 
 // Vector3 struct
 struct Vector3 {

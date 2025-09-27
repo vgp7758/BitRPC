@@ -16,32 +16,32 @@ void UserInfoSerializer::write(const void* obj, StreamWriter& writer) const {
     BitMask mask;
 
     // Bit mask group 0
-    mask.set_bit(0, !is_default_int64(obj_ref.user_id));
-    mask.set_bit(1, !is_default_string(obj_ref.username));
-    mask.set_bit(2, !is_default_string(obj_ref.email));
-    mask.set_bit(3, !is_default_string(obj_ref.roles));
-    mask.set_bit(4, !is_default_bool(obj_ref.is_active));
-    mask.set_bit(5, !is_default_datetime(obj_ref.created_at));
+    mask.set_bit(0, !is_default_int64_user_id(obj_ref.user_id));
+    mask.set_bit(1, !is_default_string_username(obj_ref.username));
+    mask.set_bit(2, !is_default_string_email(obj_ref.email));
+    mask.set_bit(3, !is_default_string_roles(obj_ref.roles));
+    mask.set_bit(4, !is_default_bool_is_active(obj_ref.is_active));
+    mask.set_bit(5, !is_default_datetime_created_at(obj_ref.created_at));
     mask.write(writer);
 
     // Write field values
     if (mask.get_bit(0)) {
-        writer.write_int64(obj_ref.user_id);
+        Int64Handler::instance().write(&obj_ref.user_id, writer);
     }
     if (mask.get_bit(1)) {
-        writer.write_string(obj_ref.username);
+        StringHandler::instance().write(&obj_ref.username, writer);
     }
     if (mask.get_bit(2)) {
-        writer.write_string(obj_ref.email);
+        StringHandler::instance().write(&obj_ref.email, writer);
     }
     if (mask.get_bit(3)) {
-        writer.write_vector(obj_ref.roles, [](const auto& x) { writer.write_string(x) });
+        writer.write_vector(obj_ref.roles, [](const auto& x) { StringHandler::instance().write(&x, writer) });
     }
     if (mask.get_bit(4)) {
-        writer.write_bool(obj_ref.is_active);
+        BoolHandler::instance().write(&obj_ref.is_active, writer);
     }
     if (mask.get_bit(5)) {
-        writer.write_object(obj_ref.created_at);
+        DateTimeHandler::instance().write(&obj_ref.created_at, writer);
     }
 }
 
@@ -53,38 +53,60 @@ void* UserInfoSerializer::read(StreamReader& reader) const {
     mask0.read(reader);
 
     if (mask0.get_bit(0)) {
-        obj_ptr->user_id = reader.read_int64();
+        obj_ptr->user_id = *static_cast<int64_t*>(Int64Handler::instance().read(reader));
     }
     if (mask0.get_bit(1)) {
-        obj_ptr->username = reader.read_string();
+        obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader));
     }
     if (mask0.get_bit(2)) {
-        obj_ptr->email = reader.read_string();
+        obj_ptr->email = *static_cast<std::string*>(StringHandler::instance().read(reader));
     }
     if (mask0.get_bit(3)) {
-        obj_ptr->roles = reader.read_vector([]() { return reader.read_string(); });
+        obj_ptr->roles = reader.read_vector([]() { return *static_cast<std::string*>(StringHandler::instance().read(reader)); });
     }
     if (mask0.get_bit(4)) {
-        obj_ptr->is_active = reader.read_bool();
+        obj_ptr->is_active = *static_cast<bool*>(BoolHandler::instance().read(reader));
     }
     if (mask0.get_bit(5)) {
-        obj_ptr->created_at = reader.read_object();
+        obj_ptr->created_at = *static_cast<std::chrono::system_clock::time_point*>(DateTimeHandler::instance().read(reader));
     }
     return obj_ptr.release();
 }
 
-private:
-    bool is_default_int64(const int64_t& value) const {
-        return value == 0;
-    }
-    bool is_default_string(const std::string& value) const {
-        return value == "";
-    }
-    bool is_default_bool(const bool& value) const {
-        return value == false;
-    }
-    bool is_default_datetime(const std::chrono::system_clock::time_point& value) const {
-        return value == ;
-    }
+bool UserInfoSerializer::is_default(const void* obj) const {
+    const auto& typed_obj = *static_cast<const UserInfo*>(obj);
+    return typed_obj == UserInfo{};
+}
 
+bool UserInfoSerializer::is_default_int64_user_id(const int64_t& value) const {
+    return Int64Handler::instance().is_default(&value);
+}
+
+bool UserInfoSerializer::is_default_string_username(const std::string& value) const {
+    return StringHandler::instance().is_default(&value);
+}
+
+bool UserInfoSerializer::is_default_string_email(const std::string& value) const {
+    return StringHandler::instance().is_default(&value);
+}
+
+bool UserInfoSerializer::is_default_string_roles(const std::string& value) const {
+    return StringHandler::instance().is_default(&value);
+}
+
+bool UserInfoSerializer::is_default_bool_is_active(const bool& value) const {
+    return BoolHandler::instance().is_default(&value);
+}
+
+bool UserInfoSerializer::is_default_datetime_created_at(const std::chrono::system_clock::time_point& value) const {
+    return DateTimeHandler::instance().is_default(&value);
+}
+
+void UserInfoSerializer::serialize(const UserInfo& obj, StreamWriter& writer) {
+    instance().write(&obj, writer);
+}
+std::unique_ptr<UserInfo> UserInfoSerializer::deserialize(StreamReader& reader) {
+    auto obj_ptr = std::unique_ptr<UserInfo>(static_cast<UserInfo*>(instance().read(reader)));
+    return obj_ptr;
+}
 }} // namespace bitrpc

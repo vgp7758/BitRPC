@@ -16,24 +16,24 @@ void LoginResponseSerializer::write(const void* obj, StreamWriter& writer) const
     BitMask mask;
 
     // Bit mask group 0
-    mask.set_bit(0, !is_default_bool(obj_ref.success));
-    mask.set_bit(1, !is_default_struct(obj_ref.user));
-    mask.set_bit(2, !is_default_string(obj_ref.token));
-    mask.set_bit(3, !is_default_string(obj_ref.error_message));
+    mask.set_bit(0, !is_default_bool_success(obj_ref.success));
+    mask.set_bit(1, !is_default_struct_user(obj_ref.user));
+    mask.set_bit(2, !is_default_string_token(obj_ref.token));
+    mask.set_bit(3, !is_default_string_error_message(obj_ref.error_message));
     mask.write(writer);
 
     // Write field values
     if (mask.get_bit(0)) {
-        writer.write_bool(obj_ref.success);
+        BoolHandler::instance().write(&obj_ref.success, writer);
     }
     if (mask.get_bit(1)) {
-        writer.write_object(obj_ref.user);
+        UserInfoSerializer::serialize(obj_ref.user, writer);
     }
     if (mask.get_bit(2)) {
-        writer.write_string(obj_ref.token);
+        StringHandler::instance().write(&obj_ref.token, writer);
     }
     if (mask.get_bit(3)) {
-        writer.write_string(obj_ref.error_message);
+        StringHandler::instance().write(&obj_ref.error_message, writer);
     }
 }
 
@@ -45,29 +45,46 @@ void* LoginResponseSerializer::read(StreamReader& reader) const {
     mask0.read(reader);
 
     if (mask0.get_bit(0)) {
-        obj_ptr->success = reader.read_bool();
+        obj_ptr->success = *static_cast<bool*>(BoolHandler::instance().read(reader));
     }
     if (mask0.get_bit(1)) {
-        obj_ptr->user = reader.read_object();
+        obj_ptr->user = UserInfoSerializer::deserialize(reader);
     }
     if (mask0.get_bit(2)) {
-        obj_ptr->token = reader.read_string();
+        obj_ptr->token = *static_cast<std::string*>(StringHandler::instance().read(reader));
     }
     if (mask0.get_bit(3)) {
-        obj_ptr->error_message = reader.read_string();
+        obj_ptr->error_message = *static_cast<std::string*>(StringHandler::instance().read(reader));
     }
     return obj_ptr.release();
 }
 
-private:
-    bool is_default_bool(const bool& value) const {
-        return value == false;
-    }
-    bool is_default_struct(const void*& value) const {
-        return value == ;
-    }
-    bool is_default_string(const std::string& value) const {
-        return value == "";
-    }
+bool LoginResponseSerializer::is_default(const void* obj) const {
+    const auto& typed_obj = *static_cast<const LoginResponse*>(obj);
+    return typed_obj == LoginResponse{};
+}
 
+bool LoginResponseSerializer::is_default_bool_success(const bool& value) const {
+    return BoolHandler::instance().is_default(&value);
+}
+
+bool LoginResponseSerializer::is_default_struct_user(const void*& value) const {
+    return UserInfoSerializer::instance().is_default(&value);
+}
+
+bool LoginResponseSerializer::is_default_string_token(const std::string& value) const {
+    return StringHandler::instance().is_default(&value);
+}
+
+bool LoginResponseSerializer::is_default_string_error_message(const std::string& value) const {
+    return StringHandler::instance().is_default(&value);
+}
+
+void LoginResponseSerializer::serialize(const LoginResponse& obj, StreamWriter& writer) {
+    instance().write(&obj, writer);
+}
+std::unique_ptr<LoginResponse> LoginResponseSerializer::deserialize(StreamReader& reader) {
+    auto obj_ptr = std::unique_ptr<LoginResponse>(static_cast<LoginResponse*>(instance().read(reader)));
+    return obj_ptr;
+}
 }} // namespace bitrpc

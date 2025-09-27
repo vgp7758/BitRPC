@@ -8,12 +8,12 @@ namespace bitrpc {
 namespace test::protocol {
 
 void register_serializers(BufferSerializer& serializer) {
-    serializer.register_handler<UserInfo>(std::make_shared<UserInfoSerializer>());
-    serializer.register_handler<LoginRequest>(std::make_shared<LoginRequestSerializer>());
-    serializer.register_handler<LoginResponse>(std::make_shared<LoginResponseSerializer>());
-    serializer.register_handler<GetUserRequest>(std::make_shared<GetUserRequestSerializer>());
-    serializer.register_handler<GetUserResponse>(std::make_shared<GetUserResponseSerializer>());
-    serializer.register_handler<EchoRequest>(std::make_shared<EchoRequestSerializer>());
-    serializer.register_handler<EchoResponse>(std::make_shared<EchoResponseSerializer>());
+    serializer.register_handler<UserInfo>(std::shared_ptr<TypeHandler>(&UserInfoSerializer::instance(), [](TypeHandler*){}));
+    serializer.register_handler<LoginRequest>(std::shared_ptr<TypeHandler>(&LoginRequestSerializer::instance(), [](TypeHandler*){}));
+    serializer.register_handler<LoginResponse>(std::shared_ptr<TypeHandler>(&LoginResponseSerializer::instance(), [](TypeHandler*){}));
+    serializer.register_handler<GetUserRequest>(std::shared_ptr<TypeHandler>(&GetUserRequestSerializer::instance(), [](TypeHandler*){}));
+    serializer.register_handler<GetUserResponse>(std::shared_ptr<TypeHandler>(&GetUserResponseSerializer::instance(), [](TypeHandler*){}));
+    serializer.register_handler<EchoRequest>(std::shared_ptr<TypeHandler>(&EchoRequestSerializer::instance(), [](TypeHandler*){}));
+    serializer.register_handler<EchoResponse>(std::shared_ptr<TypeHandler>(&EchoResponseSerializer::instance(), [](TypeHandler*){}));
 }
 }} // namespace bitrpc

@@ -14,10 +14,21 @@ public:
     int hash_code() const override;
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static GetUserResponseSerializer& instance() {
+        static GetUserResponseSerializer instance;
+        return instance;
+    }
+
+    // Static convenience methods (aligns with C#)
+    static void serialize(const GetUserResponse& obj, StreamWriter& writer);
+    static std::unique_ptr<GetUserResponse> deserialize(StreamReader& reader);
 
 private:
-    bool is_default_struct(const void*& value) const;
-    bool is_default_bool(const bool& value) const;
+    bool is_default_struct_user(const void*& value) const;
+    bool is_default_bool_found(const bool& value) const;
 };
 
 }} // namespace bitrpc

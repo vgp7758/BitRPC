@@ -16,16 +16,16 @@ void LoginRequestSerializer::write(const void* obj, StreamWriter& writer) const 
     BitMask mask;
 
     // Bit mask group 0
-    mask.set_bit(0, !is_default_string(obj_ref.username));
-    mask.set_bit(1, !is_default_string(obj_ref.password));
+    mask.set_bit(0, !is_default_string_username(obj_ref.username));
+    mask.set_bit(1, !is_default_string_password(obj_ref.password));
     mask.write(writer);
 
     // Write field values
     if (mask.get_bit(0)) {
-        writer.write_string(obj_ref.username);
+        StringHandler::instance().write(&obj_ref.username, writer);
     }
     if (mask.get_bit(1)) {
-        writer.write_string(obj_ref.password);
+        StringHandler::instance().write(&obj_ref.password, writer);
     }
 }
 
@@ -37,17 +37,32 @@ void* LoginRequestSerializer::read(StreamReader& reader) const {
     mask0.read(reader);
 
     if (mask0.get_bit(0)) {
-        obj_ptr->username = reader.read_string();
+        obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader));
     }
     if (mask0.get_bit(1)) {
-        obj_ptr->password = reader.read_string();
+        obj_ptr->password = *static_cast<std::string*>(StringHandler::instance().read(reader));
     }
     return obj_ptr.release();
 }
 
-private:
-    bool is_default_string(const std::string& value) const {
-        return value == "";
-    }
+bool LoginRequestSerializer::is_default(const void* obj) const {
+    const auto& typed_obj = *static_cast<const LoginRequest*>(obj);
+    return typed_obj == LoginRequest{};
+}
 
+bool LoginRequestSerializer::is_default_string_username(const std::string& value) const {
+    return StringHandler::instance().is_default(&value);
+}
+
+bool LoginRequestSerializer::is_default_string_password(const std::string& value) const {
+    return StringHandler::instance().is_default(&value);
+}
+
+void LoginRequestSerializer::serialize(const LoginRequest& obj, StreamWriter& writer) {
+    instance().write(&obj, writer);
+}
+std::unique_ptr<LoginRequest> LoginRequestSerializer::deserialize(StreamReader& reader) {
+    auto obj_ptr = std::unique_ptr<LoginRequest>(static_cast<LoginRequest*>(instance().read(reader)));
+    return obj_ptr;
+}
 }} // namespace bitrpc

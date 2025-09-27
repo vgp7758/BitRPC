@@ -150,6 +150,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
             sb.AppendLine($"#include \"./serializer_registry.h\"");
+            sb.AppendLine($"#include \"./models.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -175,7 +176,9 @@ namespace BitRPC.Protocol.Generator
             // Add field-specific is_default methods
             foreach (var field in message.Fields)
             {
-                sb.AppendLine($"    bool is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {GetCppTypeName(field.Type)}& value) const;");
+                var typeStr = GetCppTypeName(field.Type);
+                if(!typeStr.EndsWith("*")) typeStr = typeStr + "&";
+                sb.AppendLine($"    bool is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {typeStr} value) const;");
             }
             sb.AppendLine("};");
             sb.AppendLine();
@@ -269,7 +272,9 @@ namespace BitRPC.Protocol.Generator
             // Field-specific is_default method implementations
             foreach (var field in message.Fields)
             {
-                sb.AppendLine($"bool {message.Name}Serializer::is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {GetCppTypeName(field.Type)}& value) const {{");
+                var typeStr = GetCppTypeName(field.Type);
+                if(!typeStr.EndsWith("*")) typeStr = typeStr + "&";
+                sb.AppendLine($"bool {message.Name}Serializer::is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {typeStr} value) const {{");
                 if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
                 {
                     // For struct fields, use the singleton handler
@@ -393,6 +398,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
             sb.AppendLine($"#include \"../runtime/client.h\"");
+            sb.AppendLine("#include \"./models.h\"");
             sb.AppendLine("#include <future>");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -407,6 +413,9 @@ namespace BitRPC.Protocol.Generator
             {
                 sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request);");
             }
+
+            sb.AppendLine();
+            sb.AppendLine($"    static std::shared_ptr<{service.Name}Client> create_tcp_client(const std::string& host, int port);");
 
             sb.AppendLine("};");
             sb.AppendLine();
@@ -437,8 +446,8 @@ namespace BitRPC.Protocol.Generator
             }
 
             sb.AppendLine($"std::shared_ptr<{service.Name}Client> {service.Name}Client::create_tcp_client(const std::string& host, int port) {{");
-            sb.AppendLine($"    auto tcp_client = RpcClientFactory::create_tcp_client_native(host, port);");
-            sb.AppendLine($"    return std::make_shared<{service.Name}Client>(std::static_pointer_cast<IRpcClient>(tcp_client));");
+            sb.AppendLine($"    auto tcp_client = RpcClientFactory::create_tcp_client(host, port);");
+            sb.AppendLine($"    return std::make_shared<{service.Name}Client>(tcp_client);");
             sb.AppendLine("}");
 
             sb.AppendLine("}} // namespace bitrpc");
@@ -503,12 +512,17 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine(GenerateFileHeader($"{service.Name}_service_base.h", options));
             sb.AppendLine("#pragma once");
             sb.AppendLine();
+
             var runtimeInclude = GetRuntimeInclude(options);
             sb.AppendLine($"#include \"../runtime/server.h\"");
+            sb.AppendLine($"#include \"./models.h\"");
+            sb.AppendLine($"#include \"./i{service.Name.ToLower()}_service.h\"");
             sb.AppendLine();
+
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
+
             sb.AppendLine($"class {service.Name}ServiceBase : public BaseService, public I{service.Name}Service {{");
             sb.AppendLine("public:");
             sb.AppendLine($"    {service.Name}ServiceBase();");
@@ -522,7 +536,7 @@ namespace BitRPC.Protocol.Generator
 
             sb.AppendLine();
             sb.AppendLine("protected:");
-            sb.AppendLine("    void register_methods() override;");
+            sb.AppendLine("    void register_methods();");
 
             foreach (var method in service.Methods)
             {
@@ -545,7 +559,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
-            sb.AppendLine($"{service.Name}ServiceBase::{service.Name}ServiceBase() {{");
+            sb.AppendLine($"{service.Name}ServiceBase::{service.Name}ServiceBase() : BaseService(\"{service.Name}\") {{");
             sb.AppendLine("    register_methods();");
             sb.AppendLine("}");
             sb.AppendLine();
@@ -554,6 +568,7 @@ namespace BitRPC.Protocol.Generator
             foreach (var method in service.Methods)
             {
                 sb.AppendLine($"    register_async_method(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
+                // sb.AppendLine($"    register_async_method(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
                 sb.AppendLine($"        return {method.Name}Async_impl(request);");
                 sb.AppendLine("    });");
             }

@@ -16,12 +16,12 @@ void GetUserRequestSerializer::write(const void* obj, StreamWriter& writer) cons
     BitMask mask;
 
     // Bit mask group 0
-    mask.set_bit(0, !is_default_int64(obj_ref.user_id));
+    mask.set_bit(0, !is_default_int64_user_id(obj_ref.user_id));
     mask.write(writer);
 
     // Write field values
     if (mask.get_bit(0)) {
-        writer.write_int64(obj_ref.user_id);
+        Int64Handler::instance().write(&obj_ref.user_id, writer);
     }
 }
 
@@ -33,14 +33,25 @@ void* GetUserRequestSerializer::read(StreamReader& reader) const {
     mask0.read(reader);
 
     if (mask0.get_bit(0)) {
-        obj_ptr->user_id = reader.read_int64();
+        obj_ptr->user_id = *static_cast<int64_t*>(Int64Handler::instance().read(reader));
     }
     return obj_ptr.release();
 }
 
-private:
-    bool is_default_int64(const int64_t& value) const {
-        return value == 0;
-    }
+bool GetUserRequestSerializer::is_default(const void* obj) const {
+    const auto& typed_obj = *static_cast<const GetUserRequest*>(obj);
+    return typed_obj == GetUserRequest{};
+}
 
+bool GetUserRequestSerializer::is_default_int64_user_id(const int64_t& value) const {
+    return Int64Handler::instance().is_default(&value);
+}
+
+void GetUserRequestSerializer::serialize(const GetUserRequest& obj, StreamWriter& writer) {
+    instance().write(&obj, writer);
+}
+std::unique_ptr<GetUserRequest> GetUserRequestSerializer::deserialize(StreamReader& reader) {
+    auto obj_ptr = std::unique_ptr<GetUserRequest>(static_cast<GetUserRequest*>(instance().read(reader)));
+    return obj_ptr;
+}
 }} // namespace bitrpc

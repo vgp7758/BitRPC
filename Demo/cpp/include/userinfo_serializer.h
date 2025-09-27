@@ -14,12 +14,25 @@ public:
     int hash_code() const override;
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
+    bool is_default(const void* obj) const override;
+
+    // Singleton instance
+    static UserInfoSerializer& instance() {
+        static UserInfoSerializer instance;
+        return instance;
+    }
+
+    // Static convenience methods (aligns with C#)
+    static void serialize(const UserInfo& obj, StreamWriter& writer);
+    static std::unique_ptr<UserInfo> deserialize(StreamReader& reader);
 
 private:
-    bool is_default_int64(const int64_t& value) const;
-    bool is_default_string(const std::string& value) const;
-    bool is_default_bool(const bool& value) const;
-    bool is_default_datetime(const std::chrono::system_clock::time_point& value) const;
+    bool is_default_int64_user_id(const int64_t& value) const;
+    bool is_default_string_username(const std::string& value) const;
+    bool is_default_string_email(const std::string& value) const;
+    bool is_default_string_roles(const std::string& value) const;
+    bool is_default_bool_is_active(const bool& value) const;
+    bool is_default_datetime_created_at(const std::chrono::system_clock::time_point& value) const;
 };
 
 }} // namespace bitrpc
