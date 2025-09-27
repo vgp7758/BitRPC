@@ -47,11 +47,13 @@ namespace BitRPC.GeneratorApp
                 var configContent = File.ReadAllText(configPath);
                 var config = JsonConvert.DeserializeObject<GeneratorConfig>(configContent);
 
+#pragma warning disable CS8602 // 解引用可能出现空引用。
                 if (!File.Exists(config.ProtocolFile))
                 {
                     Console.WriteLine($"Error: Protocol file '{config.ProtocolFile}' not found.");
                     return;
                 }
+#pragma warning restore CS8602 // 解引用可能出现空引用。
 
                 var generator = new ProtocolGenerator();
                 

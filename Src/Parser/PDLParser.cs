@@ -8,43 +8,43 @@ namespace BitRPC.Protocol.Parser
     public enum FieldType
     {
         Int32, Int64, Float, Double, Bool, String,
-        Struct, List, Map, Vector3, DateTime
+        Struct, List, Map, Vector3, DateTime, Auto
     }
 
     public class ProtocolField
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         public FieldType Type { get; set; }
         public int Id { get; set; }
-        public bool IsRepeated { get; set; }
-        public string CustomType { get; set; }
-        public object DefaultValue { get; set; }
+        public bool IsRepeated { get; set; } 
+        public string CustomType { get; set; } = string.Empty;
+        public object? DefaultValue { get; set; } = null;
     }
 
     public class ProtocolMessage
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         public List<ProtocolField> Fields { get; set; } = new List<ProtocolField>();
     }
 
     public class ProtocolMethod
     {
-        public string Name { get; set; }
-        public string RequestType { get; set; }
-        public string ResponseType { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string RequestType { get; set; } = string.Empty;
+        public string ResponseType { get; set; } = string.Empty;
         // Indicates server streaming response (server sends multiple ResponseType items)
         public bool ResponseStream { get; set; }
     }
 
     public class ProtocolService
     {
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         public List<ProtocolMethod> Methods { get; set; } = new List<ProtocolMethod>();
     }
 
     public class ProtocolDefinition
     {
-        public string Namespace { get; set; }
+        public string Namespace { get; set; } = string.Empty;
         public List<ProtocolMessage> Messages { get; set; } = new List<ProtocolMessage>();
         public List<ProtocolService> Services { get; set; } = new List<ProtocolService>();
         public Dictionary<string, string> Options { get; set; } = new Dictionary<string, string>();
@@ -61,7 +61,8 @@ namespace BitRPC.Protocol.Parser
             { "bool", FieldType.Bool },
             { "string", FieldType.String },
             { "Vector3", FieldType.Vector3 },
-            { "DateTime", FieldType.DateTime }
+            { "DateTime", FieldType.DateTime },
+            { "auto", FieldType.Auto }
         };
 
         public ProtocolDefinition Parse(string content)
@@ -135,13 +136,14 @@ namespace BitRPC.Protocol.Parser
             return message;
         }
 
-        private ProtocolField ParseField(string line)
+        private ProtocolField? ParseField(string line)
         {
             var repeatedMatch = Regex.Match(line, @"repeated\s+(\w+)\s+(\w+)\s*=\s*(\d+)");
             if (repeatedMatch.Success)
             {
                 var typeName = repeatedMatch.Groups[1].Value;
                 var fieldType = MapFieldType(typeName);
+#pragma warning disable CS8601 // 引用类型赋值可能为 null。
                 return new ProtocolField
                 {
                     Name = repeatedMatch.Groups[2].Value,
@@ -150,6 +152,7 @@ namespace BitRPC.Protocol.Parser
                     IsRepeated = true,
                     CustomType = fieldType == FieldType.Struct ? typeName : null
                 };
+#pragma warning restore CS8601 // 引用类型赋值可能为 null。
             }
 
             var normalMatch = Regex.Match(line, @"(\w+)\s+(\w+)\s*=\s*(\d+)");
@@ -157,6 +160,7 @@ namespace BitRPC.Protocol.Parser
             {
                 var typeName = normalMatch.Groups[1].Value;
                 var fieldType = MapFieldType(typeName);
+#pragma warning disable CS8601 // 引用类型赋值可能为 null。
                 return new ProtocolField
                 {
                     Name = normalMatch.Groups[2].Value,
@@ -165,6 +169,7 @@ namespace BitRPC.Protocol.Parser
                     IsRepeated = false,
                     CustomType = fieldType == FieldType.Struct ? typeName : null
                 };
+#pragma warning restore CS8601 // 引用类型赋值可能为 null。
             }
 
             return null;
@@ -197,7 +202,7 @@ namespace BitRPC.Protocol.Parser
             return service;
         }
 
-        private ProtocolMethod ParseMethod(string line)
+        private ProtocolMethod? ParseMethod(string line)
         {
             // Support: rpc Method (Request) returns (Response)
             // Server streaming: rpc Method (Request) returns (stream Response)

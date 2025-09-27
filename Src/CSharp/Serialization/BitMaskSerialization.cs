@@ -84,8 +84,6 @@ namespace BitRPC.Serialization
 
         public void Read(StreamReader reader)
         {
-            _size = reader.ReadInt32();
-            _masks = new uint[_size];
             for (int i = 0; i < _size; i++)
             {
                 _masks[i] = reader.ReadUInt32();
@@ -104,7 +102,7 @@ namespace BitRPC.Serialization
         }
     }
 
-    public class StreamWriter
+    public partial class StreamWriter
     {
         private readonly MemoryStream _stream;
         private readonly BinaryWriter _writer;
@@ -174,6 +172,15 @@ namespace BitRPC.Serialization
             }
         }
 
+        public void WriteList<T>(List<T> list, Action<T, StreamWriter> writeAction)
+        {
+            WriteInt32(list.Count);
+            foreach (var item in list)
+            {
+                writeAction(item, this);
+            }
+        }
+
         public void WriteObject(object obj)
         {
             if (obj == null)
@@ -202,7 +209,7 @@ namespace BitRPC.Serialization
         }
     }
 
-    public class StreamReader
+    public partial class StreamReader
     {
         private readonly MemoryStream _stream;
         private readonly BinaryReader _reader;
@@ -267,6 +274,17 @@ namespace BitRPC.Serialization
             for (int i = 0; i < count; i++)
             {
                 list.Add(readFunc());
+            }
+            return list;
+        }
+
+        public List<T> ReadList<T>(Func<StreamReader, T> readFunc)
+        {
+            var count = ReadInt32();
+            var list = new List<T>(count);
+            for (int i = 0; i < count; i++)
+            {
+                list.Add(readFunc(this));
             }
             return list;
         }
@@ -362,6 +380,21 @@ namespace BitRPC.Serialization
         }
     }
 
+    public static partial class Types
+    {
+        public static bool IsDefault(int value) => value == 0;
+        public static bool IsDefault(long value) => value == 0L;
+        public static bool IsDefault(float value) => value == 0f;
+        public static bool IsDefault(double value) => value == 0.0;
+        public static bool IsDefault(bool value) => value == false;
+        public static bool IsDefault(string value) => string.IsNullOrEmpty(value);
+        public static bool IsDefault(byte[] value) => value == null || value.Length == 0;
+        public static bool IsDefault(DateTime value) => value == default;
+        public static bool IsDefault<T>(List<T> value) => value == null || value.Count == 0;
+        public static bool IsDefault(object value) => value == null;
+    }
+
+    #region Primitive Type Handlers
     public class Int32Handler : ITypeHandler
     {
         public int HashCode => 101;
@@ -374,6 +407,16 @@ namespace BitRPC.Serialization
         public object Read(StreamReader reader)
         {
             return reader.ReadInt32();
+        }
+
+        public static int ReadStatic(StreamReader reader)
+        {
+            return reader.ReadInt32();
+        }
+
+        public static void WriteStatic(int value, StreamWriter writer)
+        {
+            writer.WriteInt32(value);
         }
     }
 
@@ -390,6 +433,16 @@ namespace BitRPC.Serialization
         {
             return reader.ReadInt64();
         }
+
+        public static long ReadStatic(StreamReader reader)
+        {
+            return reader.ReadInt64();
+        }
+
+        public static void WriteStatic(long value, StreamWriter writer)
+        {
+            writer.WriteInt64(value);
+        }
     }
 
     public class FloatHandler : ITypeHandler
@@ -404,6 +457,16 @@ namespace BitRPC.Serialization
         public object Read(StreamReader reader)
         {
             return reader.ReadFloat();
+        }
+
+        public static float ReadStatic(StreamReader reader)
+        {
+            return reader.ReadFloat();
+        }
+
+        public static void WriteStatic(float value, StreamWriter writer)
+        {
+            writer.WriteFloat(value);
         }
     }
 
@@ -420,6 +483,16 @@ namespace BitRPC.Serialization
         {
             return reader.ReadDouble();
         }
+
+        public static double ReadStatic(StreamReader reader)
+        {
+            return reader.ReadDouble();
+        }
+
+        public static void WriteStatic(double value, StreamWriter writer)
+        {
+            writer.WriteDouble(value);
+        }
     }
 
     public class BoolHandler : ITypeHandler
@@ -434,6 +507,16 @@ namespace BitRPC.Serialization
         public object Read(StreamReader reader)
         {
             return reader.ReadBool();
+        }
+
+        public static bool ReadStatic(StreamReader reader)
+        {
+            return reader.ReadBool();
+        }
+
+        public static void WriteStatic(bool value, StreamWriter writer)
+        {
+            writer.WriteBool(value);
         }
     }
 
@@ -450,6 +533,16 @@ namespace BitRPC.Serialization
         {
             return reader.ReadString();
         }
+
+        public static string ReadStatic(StreamReader reader)
+        {
+            return reader.ReadString();
+        }
+
+        public static void WriteStatic(string value, StreamWriter writer)
+        {
+            writer.WriteString(value);
+        }
     }
 
     public class BytesHandler : ITypeHandler
@@ -465,7 +558,44 @@ namespace BitRPC.Serialization
         {
             return reader.ReadBytes();
         }
+
+        public static byte[] ReadStatic(StreamReader reader)
+        {
+            return reader.ReadBytes();
+        }
+
+        public static void WriteStatic(byte[] value, StreamWriter writer)
+        {
+            writer.WriteBytes(value);
+        }
     }
+
+    public class AutoHandler : ITypeHandler
+    {
+        public int HashCode => 150;
+
+        public void Write(object obj,StreamWriter writer)
+        {
+            writer.WriteObject(obj);
+        }
+
+        public object Read(StreamReader reader)
+        {
+            return reader.ReadObject();
+        }
+
+        public static object ReadStatic(StreamReader reader)
+        {
+            return reader.ReadObject();
+        }
+
+        public static void WriteStatic(object obj, StreamWriter writer)
+        {
+            writer.WriteObject(obj);
+        }
+    }
+
+    #endregion
 
     public static class BitMaskPool
     {

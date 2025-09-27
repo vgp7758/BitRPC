@@ -29,11 +29,6 @@ namespace BitRPC.Protocol.Generator
                 GenerateClientCode(definition, options, baseDir);
                 GenerateServerCode(definition, options, baseDir);
             }
-
-            if (options.GenerateFactories)
-            {
-                GenerateFactoryCode(definition, options, baseDir);
-            }
         }
 
         // Stable 32-bit FNV-1a hash for type names (same across processes)
@@ -121,7 +116,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var message in definition.Messages)
             {
-                var filePath = Path.Combine(serializationDir, $"{message.Name}Serializer.cs");
+                var filePath = Path.Combine(serializationDir, $"{message.Name}Handler.cs");
                 var content = GenerateMessageSerializer(message, options);
                 File.WriteAllText(filePath, content);
             }
@@ -132,25 +127,27 @@ namespace BitRPC.Protocol.Generator
         private string GenerateMessageSerializer(ProtocolMessage message, GenerationOptions options)
         {
             var sb = new StringBuilder();
-            var fieldGroups = message.Fields.Select((f, i) => new { Field = f, Index = i })
+            var fieldGroups = message.Fields.Select((f, i) => new { Field = f, Index = f.Id - 1 })
                                            .GroupBy(x => x.Index / 32)
                                            .ToList();
             
             int stableHash = ComputeStableHash(message.Name); // pre-compute stable hash
-            sb.AppendLine(GenerateFileHeader($"{message.Name}Serializer.cs", options));
+            sb.AppendLine(GenerateFileHeader($"{message.Name}Handler.cs", options));
             sb.AppendLine($"using System;");
             sb.AppendLine($"using System.IO;");
             sb.AppendLine($"using BitRPC.Serialization;");
             sb.AppendLine("using System.Collections.Generic;");
-            sb.AppendLine();
-            
+            sb.AppendLine("using static BitRPC.Serialization.Types;");
+
             if (!string.IsNullOrEmpty(options.Namespace))
             {
+                sb.AppendLine($"using {options.Namespace}.Serialization");
+                sb.AppendLine();
                 sb.AppendLine($"namespace {options.Namespace}.Serialization");
                 sb.AppendLine("{");
             }
 
-            sb.AppendLine($"    public class {message.Name}Serializer : ITypeHandler");
+            sb.AppendLine($"    public class {message.Name}Handler : ITypeHandler");
             sb.AppendLine("    {");
             sb.AppendLine($"        public int HashCode => {stableHash};");
             sb.AppendLine();
@@ -165,26 +162,22 @@ namespace BitRPC.Protocol.Generator
             for (int group = 0; group < fieldGroups.Count; group++)
             {
                 var fields = fieldGroups[group].ToList();
-                sb.AppendLine($"            // Bit mask group {group}");
+                sb.AppendLine($"                // Bit mask group {group}");
                 foreach (var fieldInfo in fields)
                 {
                     var field = fieldInfo.Field;
-                    var bitIndex = fieldInfo.Index % 32;
-                    sb.AppendLine($"            mask.SetBit({bitIndex}, !IsDefault(message.{field.Name}));");
+                    sb.AppendLine($"                mask.SetBit({fieldInfo.Index}, !IsDefault(message.{field.Name}));");
                 }
-                sb.AppendLine($"            mask.Write(writer);");
+                sb.AppendLine($"                mask.Write(writer);");
                 sb.AppendLine();
             }
 
-            sb.AppendLine("            // Write field values");
+            sb.AppendLine("                // Write field values");
             foreach (var field in message.Fields)
             {
-                var fieldIndex = message.Fields.IndexOf(field);
-                var bitIndex = fieldIndex % 32;
-                sb.AppendLine($"            if (mask.GetBit({bitIndex}))");
-                sb.AppendLine("            {");
-                sb.AppendLine($"                {GenerateWriteField(field)}");
-                sb.AppendLine("            }");
+                var fieldIndex = field.Id - 1;
+                sb.AppendLine($"                if (mask.GetBit({fieldIndex})) {GenerateWriteField(field)}");
+                //sb.AppendLine($"                {GenerateWriteField(field)}");
             }
 
             sb.AppendLine("            }");
@@ -202,89 +195,60 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"            var message = new {message.Name}();");
             sb.AppendLine();
 
-            sb.AppendLine($"            // Read bit masks using object pool");
-            sb.AppendLine($"            BitRPC.Serialization.BitMask[] masks = new BitRPC.Serialization.BitMask[{fieldGroups.Count}];");
+            sb.AppendLine($"            BitRPC.Serialization.BitMask mask = null;");
             sb.AppendLine($"            try");
             sb.AppendLine($"            {{");
-            for (int group = 0; group < fieldGroups.Count; group++)
-            {
-                sb.AppendLine($"            // Read bit mask group {group}");
-                sb.AppendLine($"            masks[{group}] = BitRPC.Serialization.BitMaskPool.Get(1);");
-                sb.AppendLine($"            masks[{group}].Read(reader);");
-            }
+            sb.AppendLine($"                mask = BitRPC.Serialization.BitMaskPool.Get({fieldGroups.Count});");
+            sb.AppendLine($"                mask.Read(reader);");
 
             foreach (var field in message.Fields)
             {
-                var fieldIndex = message.Fields.IndexOf(field);
-                var groupIndex = fieldIndex / 32;
-                var bitIndex = fieldIndex % 32;
-                sb.AppendLine($"            if (masks[{groupIndex}].GetBit({bitIndex}))");
-                sb.AppendLine("            {");
-                sb.AppendLine($"                {GenerateReadField(field)}");
-                sb.AppendLine("            }");
+                sb.AppendLine($"                if (mask.GetBit({field.Id - 1})) {GenerateReadField(field)}");
             }
 
-            sb.AppendLine("            return message;");
+            sb.AppendLine("                return message;");
             sb.AppendLine("            }");
             sb.AppendLine("            finally");
             sb.AppendLine("            {");
-            sb.AppendLine("                foreach (var mask in masks)");
-            sb.AppendLine("                {");
-            sb.AppendLine("                    if (mask != null) BitRPC.Serialization.BitMaskPool.Return(mask);");
-            sb.AppendLine("                }");
+            sb.AppendLine("                if (mask != null) BitRPC.Serialization.BitMaskPool.Return(mask);");
             sb.AppendLine("            }");
             sb.AppendLine("        }");
             sb.AppendLine();
 
-            // Add default check methods for each unique field type
-            var uniqueFieldTypes = new Dictionary<string, (string typeName, string defaultValue)>();
-            foreach (var field in message.Fields)
-            {
-                var typeName = GetCSharpType(field);
-                var defaultValue = GetDefaultValue(field);
-                
-                if (!uniqueFieldTypes.ContainsKey(typeName))
-                {
-                    uniqueFieldTypes[typeName] = (typeName, defaultValue);
-                }
-            }
-            
-            foreach (var (typeName, defaultValue) in uniqueFieldTypes.Values)
-            {
-                sb.AppendLine($"        private bool IsDefault({typeName} value)");
-                sb.AppendLine("        {");
-                if (typeName == "string")
-                {
-                    sb.AppendLine($"            return string.IsNullOrEmpty(value);");
-                }
-                else
-                {
-                    sb.AppendLine($"            return value == {defaultValue};");
-                }
-                sb.AppendLine("        }");
-                sb.AppendLine();
-            }
-
-            // Add static helper methods
-            sb.AppendLine($"        private static readonly {message.Name}Serializer _instance = new {message.Name}Serializer();");
-            sb.AppendLine();
-            sb.AppendLine($"        public static void Write({message.Name} obj, BitRPC.Serialization.StreamWriter writer)");
-            sb.AppendLine("        {");
-            sb.AppendLine("            _instance.Write(obj, writer);");
-            sb.AppendLine("        }");
-            sb.AppendLine();
-            sb.AppendLine($"        public static {message.Name} ReadStatic(BitRPC.Serialization.StreamReader reader)");
-            sb.AppendLine("        {");
-            sb.AppendLine($"            return ({message.Name})_instance.Read(reader);");
-            sb.AppendLine("        }");
-            sb.AppendLine();
-
+            // add constructor to initialize static instance
+            sb.AppendLine($"        public {message.Name}Handler()" + "{ _instance = this; }");
+            sb.AppendLine($"        public static readonly {message.Name}Handler _instance;");
             sb.AppendLine("    }");
 
             if (!string.IsNullOrEmpty(options.Namespace))
             {
                 sb.AppendLine("}");
             }
+            sb.AppendLine();
+            sb.AppendLine("namespace BitRPC.Serialization{");
+            sb.AppendLine("    public static partial class Types{");
+            sb.AppendLine($"        public static bool IsDefault({message.Name} message)"+ "{");
+            sb.AppendLine("            if (message == null) return true;");
+            foreach (var field in message.Fields)
+            {
+                sb.AppendLine($"            if (!IsDefault(message.{field.Name})) return false;");
+            }
+            sb.AppendLine("            return true;");
+            sb.AppendLine("        }");
+            //sb.AppendLine($"        public static void Write(this StreamWriter writer, {message.Name} message) => {message.Name}Handler.WriteStatic(message, writer);");
+            sb.AppendLine("    }");
+
+            // streamwriter partial class
+            sb.AppendLine("    public partial class StreamWriter{");
+            sb.AppendLine($"        public void Write{message.Name}({message.Name} message) => {message.Name}Handler._instance.Write(message, this);");
+            sb.AppendLine("    }");
+
+            // streamreader partial class
+            sb.AppendLine("    public partial class StreamReader{");
+            sb.AppendLine($"        public {message.Name} Read{message.Name}() => ({message.Name}){message.Name}Handler._instance.Read(this);");
+            sb.AppendLine("    }");
+
+            sb.AppendLine("}");
 
             return sb.ToString();
         }
@@ -306,12 +270,13 @@ namespace BitRPC.Protocol.Generator
 
             sb.AppendLine("    public static class SerializerRegistry");
             sb.AppendLine("    {");
-            sb.AppendLine("        public static void RegisterSerializers(IBufferSerializer serializer)");
+            sb.AppendLine("        public static void RegisterSerializers()");
             sb.AppendLine("        {");
+            sb.AppendLine("            var serializer = BufferSerializer.Instance;");
 
             foreach (var message in definition.Messages)
             {
-                sb.AppendLine($"            serializer.RegisterHandler<{message.Name}>(new {message.Name}Serializer());");
+                sb.AppendLine($"            serializer.RegisterHandler<{message.Name}>(new {message.Name}Handler());");
             }
 
             sb.AppendLine("        }");
@@ -508,47 +473,6 @@ namespace BitRPC.Protocol.Generator
             return sb.ToString();
         }
 
-        private void GenerateFactoryCode(ProtocolDefinition definition, GenerationOptions options, string baseDir)
-        {
-            var factoryDir = Path.Combine(baseDir, "Factory");
-            EnsureDirectoryExists(factoryDir);
-
-            var filePath = Path.Combine(factoryDir, "ProtocolFactory.cs");
-            var content = GenerateProtocolFactory(definition, options);
-            File.WriteAllText(filePath, content);
-        }
-
-        private string GenerateProtocolFactory(ProtocolDefinition definition, GenerationOptions options)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine(GenerateFileHeader("ProtocolFactory.cs", options));
-            sb.AppendLine("using System;");
-            sb.AppendLine("using BitRPC.Serialization;");
-            sb.AppendLine();
-            
-            if (!string.IsNullOrEmpty(options.Namespace))
-            {
-                sb.AppendLine($"namespace {options.Namespace}.Factory");
-                sb.AppendLine("{");
-            }
-
-            sb.AppendLine("    public static class ProtocolFactory");
-            sb.AppendLine("    {");
-            sb.AppendLine("        public static void Initialize()");
-            sb.AppendLine("        {");
-            sb.AppendLine("            var serializer = BufferSerializer.Instance;");
-            sb.AppendLine($"            {options.Namespace}.Serialization.SerializerRegistry.RegisterSerializers(serializer);");
-            sb.AppendLine("        }");
-            sb.AppendLine("    }");
-
-            if (!string.IsNullOrEmpty(options.Namespace))
-            {
-                sb.AppendLine("}");
-            }
-
-            return sb.ToString();
-        }
-
         private string GetCSharpTypeName(FieldType type)
         {
             return type switch
@@ -608,75 +532,29 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"writer.WriteList(message.{field.Name}, x => {GenerateWriteValueForField(field, "x")});";
+                return $"writer.WriteList(writer.Write{GetTypeName(field)});";
             }
 
-            return $"{GenerateWriteValueForField(field, $"message.{field.Name}")};";
+            return $"writer.Write{GetTypeName(field)}(message.{field.Name});";
         }
 
-        private string GenerateWriteValueForField(ProtocolField field, string value)
+        private string GetTypeName(ProtocolField field)
         {
             if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
             {
-                return $"{field.CustomType}Serializer.Write({value}, writer)";
+                return $"{field.CustomType}";
             }
-            if (field.Type == FieldType.Vector3)
-            {
-                return "Vector3Serializer.Write(" + value + ", writer)";
-            }
-            return GenerateWriteValue(field.Type, value);
-        }
-
-        private string GenerateWriteValue(FieldType type, string value)
-        {
-            return type switch
-            {
-                FieldType.Int32 => $"writer.WriteInt32({value})",
-                FieldType.Int64 => $"writer.WriteInt64({value})",
-                FieldType.Float => $"writer.WriteFloat({value})",
-                FieldType.Double => $"writer.WriteDouble({value})",
-                FieldType.Bool => $"writer.WriteBool({value})",
-                FieldType.String => $"writer.WriteString({value})",
-                _ => $"writer.WriteObject({value})"
-            };
+            return $"{field.Type}";
         }
 
         private string GenerateReadField(ProtocolField field)
         {
             if (field.IsRepeated)
             {
-                return $"message.{field.Name} = reader.ReadList(() => {GenerateReadValueForField(field)});";
+                return $"message.{field.Name} = reader.ReadList(reader.Read{GetTypeName(field)});";
             }
 
-            return $"message.{field.Name} = {GenerateReadValueForField(field)};";
-        }
-
-        private string GenerateReadValueForField(ProtocolField field)
-        {
-            if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
-            {
-                return $"{field.CustomType}Serializer.ReadStatic(reader)";
-            }
-            if (field.Type == FieldType.Vector3)
-            {
-                return "Vector3Serializer.ReadStatic(reader)";
-            }
-            return GenerateReadValue(field.Type);
-        }
-
-        private string GenerateReadValue(FieldType type)
-        {
-            return type switch
-            {
-                FieldType.Int32 => "reader.ReadInt32()",
-                FieldType.Int64 => "reader.ReadInt64()",
-                FieldType.Float => "reader.ReadFloat()",
-                FieldType.Double => "reader.ReadDouble()",
-                FieldType.Bool => "reader.ReadBool()",
-                FieldType.String => "reader.ReadString()",
-                FieldType.DateTime => "(DateTime)reader.ReadObject()",
-                _ => "reader.ReadObject()"
-            };
+            return $"message.{field.Name} = reader.Read{GetTypeName(field)}();";
         }
     }
 }

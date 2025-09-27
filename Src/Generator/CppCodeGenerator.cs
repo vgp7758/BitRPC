@@ -173,14 +173,44 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"    static std::unique_ptr<{message.Name}> deserialize(StreamReader& reader);");
             sb.AppendLine();
             sb.AppendLine("private:");
-            // Add field-specific is_default methods
+            sb.AppendLine("};");
+            // sb.AppendLine();
+            // sb.AppendLine("} // namespace bitrpc");
+
+            // Generate public is_default method for the entire type
+            // sb.AppendLine($"namespace bitrpc {{");
+            // sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
+            sb.AppendLine();
+            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}* value) {{");
+            sb.AppendLine($"    // For null objects, consider as default");
+            sb.AppendLine($"    if (value == nullptr) return true;");
+            sb.AppendLine();
+            sb.AppendLine($"    // For objects, check if any field is non-default");
+            sb.AppendLine($"    const auto& obj = *value;");
+
             foreach (var field in message.Fields)
             {
-                var typeStr = GetCppTypeName(field.Type);
-                if(!typeStr.EndsWith("*")) typeStr = typeStr + "&";
-                sb.AppendLine($"    bool is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {typeStr} value) const;");
+                if (field.IsRepeated)
+                {
+                    sb.AppendLine($"    if (!obj.{field.Name}.empty()) return false;");
+                }
+                else if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
+                {
+                    sb.AppendLine($"    if (!is_default_{field.CustomType.ToLower()}(&obj.{field.Name})) return false;");
+                }
+                else
+                {
+                    var defaultValue = GetCppDefaultValueForType(field.Type);
+                    sb.AppendLine($"    if (obj.{field.Name} != {defaultValue}) return false;");
+                }
             }
-            sb.AppendLine("};");
+
+            sb.AppendLine($"    return true;");
+            sb.AppendLine("}");
+            sb.AppendLine();
+            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}& value) {{");
+            sb.AppendLine($"    return is_default_{message.Name.ToLower()}(&value);");
+            sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine("}} // namespace bitrpc");
 
@@ -217,7 +247,23 @@ namespace BitRPC.Protocol.Generator
                 {
                     var field = fieldInfo.Field;
                     var bitIndex = fieldInfo.Index % 32;
-                    sb.AppendLine($"    mask.set_bit({bitIndex}, !is_default_{field.Type.ToString().ToLower()}_{field.Name}(obj_ref.{field.Name}));");
+
+                    if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
+                    {
+                        // For struct fields, use the public is_default method
+                        sb.AppendLine($"    mask.set_bit({bitIndex}, !is_default_{field.CustomType.ToLower()}(&obj_ref.{field.Name}));");
+                    }
+                    else if (field.IsRepeated)
+                    {
+                        // For repeated fields, check if vector is empty
+                        sb.AppendLine($"    mask.set_bit({bitIndex}, !obj_ref.{field.Name}.empty());");
+                    }
+                    else
+                    {
+                        // For built-in types, compare with default value
+                        var defaultValue = GetCppDefaultValueForType(field.Type);
+                        sb.AppendLine($"    mask.set_bit({bitIndex}, !(obj_ref.{field.Name} == {defaultValue}));");
+                    }
                 }
                 sb.AppendLine($"    mask.write(writer);");
                 sb.AppendLine();
@@ -262,33 +308,11 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("}");
             sb.AppendLine();
 
-            // is_default method implementation
-            sb.AppendLine($"bool {message.Name}Serializer::is_default(const void* obj) const {{");
-            sb.AppendLine($"    const auto& typed_obj = *static_cast<const {message.Name}*>(obj);");
-            sb.AppendLine($"    return typed_obj == {message.Name}{{}};");
-            sb.AppendLine("}");
-            sb.AppendLine();
-
-            // Field-specific is_default method implementations
-            foreach (var field in message.Fields)
-            {
-                var typeStr = GetCppTypeName(field.Type);
-                if(!typeStr.EndsWith("*")) typeStr = typeStr + "&";
-                sb.AppendLine($"bool {message.Name}Serializer::is_default_{field.Type.ToString().ToLower()}_{field.Name}(const {typeStr} value) const {{");
-                if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
-                {
-                    // For struct fields, use the singleton handler
-                    sb.AppendLine($"    return {field.CustomType}Serializer::instance().is_default(&value);");
-                }
-                else
-                {
-                    // For built-in types, use the singleton handler
-                    var handlerName = GetSingletonHandlerForType(field.Type);
-                    sb.AppendLine($"    return {handlerName}.is_default(&value);");
-                }
-                sb.AppendLine("}");
-                sb.AppendLine();
-            }
+            // // is_default method implementation
+            // sb.AppendLine($"bool {message.Name}Serializer::is_default(const void* obj) const {{");
+            // sb.AppendLine($"    return is_default_{message.Name.ToLower()}(static_cast<const {message.Name}*>(obj));");
+            // sb.AppendLine("}");
+            // sb.AppendLine();
 
             // Static convenience methods
             sb.AppendLine($"void {message.Name}Serializer::serialize(const {message.Name}& obj, StreamWriter& writer) {{");
@@ -770,6 +794,8 @@ namespace BitRPC.Protocol.Generator
                 FieldType.Double => "0.0",
                 FieldType.Bool => "false",
                 FieldType.String => "\"\"",
+                FieldType.Vector3 => "Vector3(0.0f, 0.0f, 0.0f)",
+                FieldType.DateTime => "std::chrono::system_clock::time_point()",
                 _ => ""
             };
         }
@@ -810,7 +836,7 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
             {
-                return $"{field.CustomType}Serializer::deserialize(reader)";
+                return $"*{field.CustomType}Serializer::deserialize(reader)";
             }
 
             // For built-in types, use the singleton handler

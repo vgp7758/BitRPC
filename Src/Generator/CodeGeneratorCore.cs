@@ -15,8 +15,10 @@ namespace BitRPC.Protocol.Generator
     public class GenerationOptions
     {
         public TargetLanguage Language { get; set; }
+#pragma warning disable CS8618 // 在退出构造函数时，不可为 null 的字段必须包含非 null 值。请考虑添加 "required" 修饰符或声明为可为 null。
         public string OutputDirectory { get; set; }
         public string Namespace { get; set; }
+#pragma warning restore CS8618 // 在退出构造函数时，不可为 null 的字段必须包含非 null 值。请考虑添加 "required" 修饰符或声明为可为 null。
         public bool GenerateSerialization { get; set; } = true;
         public bool GenerateClientServer { get; set; } = true;
         public bool GenerateFactories { get; set; } = true;
@@ -38,7 +40,7 @@ namespace BitRPC.Protocol.Generator
     {
         protected readonly string _templateDirectory;
 
-        protected BaseCodeGenerator(string templateDirectory = null)
+        protected BaseCodeGenerator(string? templateDirectory = null)
         {
             _templateDirectory = templateDirectory ?? "Templates";
         }
@@ -56,7 +58,9 @@ namespace BitRPC.Protocol.Generator
         protected string GetOutputPath(GenerationOptions options, params string[] subPaths)
         {
             var path = Path.Combine(options.OutputDirectory, Path.Combine(subPaths));
+#pragma warning disable CS8604 // 引用类型参数可能为 null。
             EnsureDirectoryExists(Path.GetDirectoryName(path));
+#pragma warning restore CS8604 // 引用类型参数可能为 null。
             return path;
         }
 
