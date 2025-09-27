@@ -166,17 +166,18 @@ namespace BitRPC.Protocol.Generator
                 foreach (var fieldInfo in fields)
                 {
                     var field = fieldInfo.Field;
-                    sb.AppendLine($"                mask.SetBit({fieldInfo.Index}, !IsDefault(message.{field.Name}));");
+                    sb.AppendLine($"                mask.SetBit({fieldInfo.Index}, !IsDefault(message.{field.Name}),{group});");
                 }
-                sb.AppendLine($"                mask.Write(writer);");
-                sb.AppendLine();
             }
-
+            sb.AppendLine($"                mask.Write(writer,{fieldGroups.Count});");
+            sb.AppendLine();
             sb.AppendLine("                // Write field values");
             foreach (var field in message.Fields)
             {
-                var fieldIndex = field.Id - 1;
-                sb.AppendLine($"                if (mask.GetBit({fieldIndex})) {GenerateWriteField(field)}");
+                int index = field.Id - 1;
+                int group = index / 32;
+                int bitPosition = index % 32;
+                sb.AppendLine($"                if (mask.GetBit({bitPosition}, {group})) {GenerateWriteField(field)}");
                 //sb.AppendLine($"                {GenerateWriteField(field)}");
             }
 
@@ -199,11 +200,14 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine($"            try");
             sb.AppendLine($"            {{");
             sb.AppendLine($"                mask = BitRPC.Serialization.BitMaskPool.Get({fieldGroups.Count});");
-            sb.AppendLine($"                mask.Read(reader);");
+            sb.AppendLine($"                mask.Read(reader, {fieldGroups.Count});");
 
             foreach (var field in message.Fields)
             {
-                sb.AppendLine($"                if (mask.GetBit({field.Id - 1})) {GenerateReadField(field)}");
+                int index = field.Id - 1;
+                int group = index / 32;
+                int bitPosition = index % 32;
+                sb.AppendLine($"                if (mask.GetBit({bitPosition}, {group})) {GenerateReadField(field)}");
             }
 
             sb.AppendLine("                return message;");

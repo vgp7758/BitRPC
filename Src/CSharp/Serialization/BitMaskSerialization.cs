@@ -41,15 +41,17 @@ namespace BitRPC.Serialization
 
         public void SetBit(int index, bool value)
         {
-            int maskIndex = index / 32;
-            int bitIndex = index % 32;
+            SetBit(index, value, index / 32);
+        }
 
+        public void SetBit(int index,bool value,int maskIndex)
+        {
+            int bitIndex = index % 32;
             if (maskIndex >= _size)
             {
                 Array.Resize(ref _masks, maskIndex + 1);
                 _size = maskIndex + 1;
             }
-
             if (value)
             {
                 _masks[maskIndex] |= (1u << bitIndex);
@@ -62,29 +64,58 @@ namespace BitRPC.Serialization
 
         public bool GetBit(int index)
         {
-            int maskIndex = index / 32;
-            int bitIndex = index % 32;
+            return GetBit(index, index / 32);
+        }
 
+        public bool GetBit(int index, int maskIndex)
+        {
+            int bitIndex = index % 32;
             if (maskIndex >= _size)
             {
                 return false;
             }
-
             return (_masks[maskIndex] & (1u << bitIndex)) != 0;
         }
 
         public void Write(StreamWriter writer)
         {
-            writer.WriteInt32(_size);
             for (int i = 0; i < _size; i++)
             {
                 writer.WriteUInt32(_masks[i]);
             }
         }
 
+        public void Write(StreamWriter writer, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (i < _size)
+                {
+                    writer.WriteUInt32(_masks[i]);
+                }
+                else
+                {
+                    writer.WriteUInt32(0);
+                }
+            }
+        }
+
         public void Read(StreamReader reader)
         {
             for (int i = 0; i < _size; i++)
+            {
+                _masks[i] = reader.ReadUInt32();
+            }
+        }
+
+        public void Read(StreamReader reader, int count)
+        {
+            if (count > _size)
+            {
+                Array.Resize(ref _masks, count);
+                _size = count;
+            }
+            for (int i = 0; i < count; i++)
             {
                 _masks[i] = reader.ReadUInt32();
             }
