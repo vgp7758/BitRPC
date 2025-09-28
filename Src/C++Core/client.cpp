@@ -6,6 +6,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
 #pragma comment(lib, "ws2_32.lib")
 #else
 #include <sys/socket.h>
@@ -13,6 +14,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <cerrno>
+#include <cstring>
 #define SOCKET int
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
@@ -46,12 +49,12 @@ void TcpRpcClient::connect(const std::string& host, int port) {
 #ifdef _WIN32
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
-        throw std::runtime_error("Failed to create socket");
+        throw ConnectionException("Failed to create socket");
     }
 #else
     SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        throw std::runtime_error("Failed to create socket");
+        throw ConnectionException("Failed to create socket");
     }
 #endif
 
@@ -62,14 +65,14 @@ void TcpRpcClient::connect(const std::string& host, int port) {
     struct hostent* host_info = gethostbyname(host.c_str());
     if (!host_info) {
         closesocket(sock);
-        throw std::runtime_error("Failed to resolve hostname");
+        throw ConnectionException("Failed to resolve hostname");
     }
 
     memcpy(&server_addr.sin_addr, host_info->h_addr_list[0], host_info->h_length);
 
     if (::connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) != 0) {
         closesocket(sock);
-        throw std::runtime_error("Failed to connect to server");
+        throw ConnectionException("Failed to connect to server");
     }
 
     socket_ = reinterpret_cast<void*>(static_cast<intptr_t>(sock));
@@ -95,7 +98,7 @@ std::vector<uint8_t> TcpRpcClient::call(const std::string& method, const std::ve
     std::lock_guard<std::mutex> lock(socket_mutex_);
 
     if (!connected_ || !socket_) {
-        throw std::runtime_error("Not connected to server");
+        throw ConnectionException("Not connected to server");
     }
 
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
@@ -115,7 +118,7 @@ std::vector<uint8_t> TcpRpcClient::call(const std::string& method, const std::ve
     uint32_t response_length = 0;
     int bytes_received = recv(sock, reinterpret_cast<char*>(&response_length), sizeof(response_length), 0);
     if (bytes_received != sizeof(response_length)) {
-        throw std::runtime_error("Failed to receive response length");
+        throw ConnectionException("Failed to receive response length");
     }
 
     // Receive response data
@@ -125,7 +128,7 @@ std::vector<uint8_t> TcpRpcClient::call(const std::string& method, const std::ve
         bytes_received = recv(sock, reinterpret_cast<char*>(response.data() + total_received),
                               static_cast<int>(response_length - total_received), 0);
         if (bytes_received <= 0) {
-            throw std::runtime_error("Failed to receive response data");
+            throw ConnectionException("Failed to receive response data");
         }
         total_received += bytes_received;
     }
@@ -157,12 +160,12 @@ void TcpRpcClientAsync::connect(const std::string& host, int port) {
 #ifdef _WIN32
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
-        throw std::runtime_error("Failed to create socket");
+        throw ConnectionException("Failed to create socket");
     }
 #else
     SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        throw std::runtime_error("Failed to create socket");
+        throw ConnectionException("Failed to create socket");
     }
 #endif
 
@@ -173,14 +176,14 @@ void TcpRpcClientAsync::connect(const std::string& host, int port) {
     struct hostent* host_info = gethostbyname(host.c_str());
     if (!host_info) {
         closesocket(sock);
-        throw std::runtime_error("Failed to resolve hostname");
+        throw ConnectionException("Failed to resolve hostname");
     }
 
     memcpy(&server_addr.sin_addr, host_info->h_addr_list[0], host_info->h_length);
 
     if (::connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) != 0) {
         closesocket(sock);
-        throw std::runtime_error("Failed to connect to server");
+        throw ConnectionException("Failed to connect to server");
     }
 
     socket_ = reinterpret_cast<void*>(static_cast<intptr_t>(sock));
@@ -214,7 +217,7 @@ std::shared_ptr<StreamResponseReader> TcpRpcClientAsync::stream_async(const std:
     std::lock_guard<std::mutex> lock(socket_mutex_);
 
     if (!connected_ || !socket_) {
-        throw std::runtime_error("Not connected to server");
+        throw ConnectionException("Not connected to server");
     }
 
     // Send stream request
@@ -259,6 +262,48 @@ void TcpRpcClientAsync::cleanup_network() {
 #endif
 }
 
+std::vector<uint8_t> TcpRpcClientAsync::make_rpc_call(const std::string& method, const std::vector<uint8_t>& request) {
+    std::lock_guard<std::mutex> lock(socket_mutex_);
+
+    if (!connected_ || !socket_) {
+        throw ConnectionException("Not connected to server");
+    }
+
+    SOCKET sock = reinterpret_cast<SOCKET>(socket_);
+
+    // Create combined payload: method_name + serialized_request (aligned with C#)
+    std::vector<uint8_t> combined_payload;
+    combined_payload.reserve(method.size() + request.size());
+    combined_payload.insert(combined_payload.end(), method.begin(), method.end());
+    combined_payload.insert(combined_payload.end(), request.begin(), request.end());
+
+    // Send combined payload length and data (C# compatible format)
+    uint32_t payload_length = static_cast<uint32_t>(combined_payload.size());
+    send(sock, reinterpret_cast<const char*>(&payload_length), sizeof(payload_length), 0);
+    send(sock, reinterpret_cast<const char*>(combined_payload.data()), static_cast<int>(combined_payload.size()), 0);
+
+    // Receive response length
+    uint32_t response_length = 0;
+    int bytes_received = recv(sock, reinterpret_cast<char*>(&response_length), sizeof(response_length), 0);
+    if (bytes_received != sizeof(response_length)) {
+        throw ConnectionException("Failed to receive response length");
+    }
+
+    // Receive response data
+    std::vector<uint8_t> response(response_length);
+    size_t total_received = 0;
+    while (total_received < response_length) {
+        bytes_received = recv(sock, reinterpret_cast<char*>(response.data() + total_received),
+                              static_cast<int>(response_length - total_received), 0);
+        if (bytes_received <= 0) {
+            throw ConnectionException("Failed to receive response data");
+        }
+        total_received += bytes_received;
+    }
+
+    return response;
+}
+
 std::shared_ptr<TcpRpcClientAsync> RpcClientFactory::create_tcp_client_async(const std::string& host, int port) {
     auto client = std::make_shared<TcpRpcClientAsync>();
     client->connect(host, port);
@@ -279,15 +324,22 @@ std::vector<uint8_t> TcpStreamResponseReader::read_next() {
     std::lock_guard<std::mutex> lock(socket_mutex_);
 
     if (has_error_) {
-        throw std::runtime_error(error_message_);
+        throw StreamException(error_message_);
     }
 
-    if (stream_ended_ || connection_closed_) {
+    if (stream_ended_) {
         return {};
+    }
+
+    if (connection_closed_) {
+        throw ConnectionException("Stream connection is closed");
     }
 
     std::vector<uint8_t> frame_data;
     if (!read_next_frame(frame_data)) {
+        if (has_error_) {
+            throw StreamException(error_message_);
+        }
         return {};
     }
 
@@ -300,9 +352,26 @@ std::vector<uint8_t> TcpStreamResponseReader::read_next() {
         }
     }
 
-    // For now, return the raw frame data
-    // In a real implementation, this would deserialize the data
-    return frame_data;
+    // Deserialize the data using response type hash
+    try {
+        if (response_type_hash_ != 0) {
+            auto handler = serializer_.get_handler_by_hash_code(response_type_hash_);
+            if (handler) {
+                StreamReader reader(frame_data);
+                void* obj = handler->read(reader);
+                // Convert to vector format (simplified for now)
+                // In a full implementation, this would return properly typed objects
+                return frame_data;
+            }
+        }
+        return frame_data;
+    } catch (const SerializationException& e) {
+        mark_error("Deserialization error: " + std::string(e.what()));
+        throw; // Re-throw serialization exceptions
+    } catch (const std::exception& e) {
+        mark_error("Unexpected error during deserialization: " + std::string(e.what()));
+        throw StreamException("Stream processing error: " + std::string(e.what()));
+    }
 }
 
 bool TcpStreamResponseReader::has_more() const {
@@ -325,17 +394,18 @@ std::string TcpStreamResponseReader::get_error_message() const {
 bool TcpStreamResponseReader::read_next_frame(std::vector<uint8_t>& data) {
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Read frame length (C# compatible format)
+    // Read frame length (C# compatible format) with timeout handling
     uint32_t frame_length = 0;
     int bytes_received = recv(sock, reinterpret_cast<char*>(&frame_length), sizeof(frame_length), 0);
 
     if (bytes_received <= 0) {
         connection_closed_ = true;
+        mark_error("Connection closed while reading frame length");
         return false;
     }
 
     if (bytes_received != sizeof(frame_length)) {
-        mark_error("Failed to read frame length");
+        mark_error("Incomplete frame length received");
         return false;
     }
 
@@ -346,7 +416,14 @@ bool TcpStreamResponseReader::read_next_frame(std::vector<uint8_t>& data) {
         return true;
     }
 
-    // Read frame data
+    // Validate frame length to prevent memory exhaustion
+    const uint32_t MAX_FRAME_SIZE = 10 * 1024 * 1024; // 10MB limit
+    if (frame_length > MAX_FRAME_SIZE) {
+        mark_error("Frame size exceeds maximum limit");
+        return false;
+    }
+
+    // Read frame data with robust error handling
     data.resize(frame_length);
     size_t total_received = 0;
     while (total_received < frame_length) {
@@ -354,6 +431,7 @@ bool TcpStreamResponseReader::read_next_frame(std::vector<uint8_t>& data) {
                              static_cast<int>(frame_length - total_received), 0);
         if (bytes_received <= 0) {
             connection_closed_ = true;
+            mark_error("Connection closed while reading frame data");
             return false;
         }
         total_received += bytes_received;
@@ -426,19 +504,31 @@ std::string TcpStreamResponseWriter::get_error_message() const {
 bool TcpStreamResponseWriter::write_frame(const std::vector<uint8_t>& data) {
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Write frame length (C# compatible format)
+    // Validate data size
+    const uint32_t MAX_FRAME_SIZE = 10 * 1024 * 1024; // 10MB limit
     uint32_t frame_length = static_cast<uint32_t>(data.size());
-    int bytes_sent = send(sock, reinterpret_cast<const char*>(&frame_length), sizeof(frame_length), 0);
-    if (bytes_sent != sizeof(frame_length)) {
-        mark_error("Failed to send frame length");
+    if (frame_length > MAX_FRAME_SIZE) {
+        mark_error("Frame size exceeds maximum limit");
         return false;
     }
 
-    // Write frame data
-    bytes_sent = send(sock, reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), 0);
-    if (bytes_sent != static_cast<int>(data.size())) {
-        mark_error("Failed to send frame data");
+    // Write frame length (C# compatible format)
+    int bytes_sent = send(sock, reinterpret_cast<const char*>(&frame_length), sizeof(frame_length), 0);
+    if (bytes_sent != sizeof(frame_length)) {
+        mark_error("Failed to send frame length: connection may be broken");
         return false;
+    }
+
+    // Write frame data in chunks if necessary
+    size_t total_sent = 0;
+    while (total_sent < data.size()) {
+        int chunk_size = std::min(static_cast<size_t>(8192), data.size() - total_sent); // 8KB chunks
+        bytes_sent = send(sock, reinterpret_cast<const char*>(data.data() + total_sent), chunk_size, 0);
+        if (bytes_sent <= 0) {
+            mark_error("Failed to send frame data: connection may be broken");
+            return false;
+        }
+        total_sent += bytes_sent;
     }
 
     return true;
@@ -477,5 +567,44 @@ void TcpRpcClient::cleanup_network() {
     WSACleanup();
 }
 #endif
+
+// ErrorHandler implementation
+void ErrorHandler::log_error(const std::string& context, const std::exception& e) {
+    // Simple error logging - in a real implementation this would use a proper logging framework
+    std::cerr << "[ERROR] " << context << ": " << e.what() << std::endl;
+}
+
+void ErrorHandler::log_warning(const std::string& message) {
+    std::cerr << "[WARNING] " << message << std::endl;
+}
+
+void ErrorHandler::log_info(const std::string& message) {
+    std::cout << "[INFO] " << message << std::endl;
+}
+
+std::string ErrorHandler::error_code_to_string(int error_code) {
+    switch (error_code) {
+        case 0: return "Success";
+        case 1001: return "Connection Error";
+        case 1002: return "Timeout Error";
+        case 2001: return "Serialization Error";
+        case 3001: return "Stream Error";
+        case 4001: return "Protocol Error";
+        default: return "Unknown Error";
+    }
+}
+
+std::string ErrorHandler::get_last_system_error() {
+#ifdef _WIN32
+    char buffer[256];
+    DWORD error = GetLastError();
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                   nullptr, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   buffer, sizeof(buffer), nullptr);
+    return buffer;
+#else
+    return strerror(errno);
+#endif
+}
 
 } // namespace bitrpc

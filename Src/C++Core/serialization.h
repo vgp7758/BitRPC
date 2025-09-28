@@ -10,6 +10,7 @@
 #include <typeinfo>
 #include <mutex>
 #include <optional>
+#include <mutex>
 
 namespace bitrpc {
 

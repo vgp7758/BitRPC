@@ -9,9 +9,48 @@
 #include <cstdint>
 #include <functional>
 #include <typeinfo>
+#include <stdexcept>
 #include "serialization.h"
 
 namespace bitrpc {
+
+// Custom RPC exceptions
+class RpcException : public std::runtime_error {
+public:
+    RpcException(const std::string& message) : std::runtime_error(message) {}
+    virtual ~RpcException() = default;
+    virtual int error_code() const { return 0; }
+};
+
+class ConnectionException : public RpcException {
+public:
+    ConnectionException(const std::string& message) : RpcException(message) {}
+    int error_code() const override { return 1001; }
+};
+
+class TimeoutException : public RpcException {
+public:
+    TimeoutException(const std::string& message) : RpcException(message) {}
+    int error_code() const override { return 1002; }
+};
+
+class SerializationException : public RpcException {
+public:
+    SerializationException(const std::string& message) : RpcException(message) {}
+    int error_code() const override { return 2001; }
+};
+
+class StreamException : public RpcException {
+public:
+    StreamException(const std::string& message) : RpcException(message) {}
+    int error_code() const override { return 3001; }
+};
+
+class ProtocolException : public RpcException {
+public:
+    ProtocolException(const std::string& message) : RpcException(message) {}
+    int error_code() const override { return 4001; }
+};
 
 // RPC Client interface
 class RpcClient {
@@ -151,6 +190,20 @@ private:
 
     bool write_frame(const std::vector<uint8_t>& data);
     void mark_error(const std::string& error);
+};
+
+// Error handler utility
+class ErrorHandler {
+public:
+    static void log_error(const std::string& context, const std::exception& e);
+    static void log_warning(const std::string& message);
+    static void log_info(const std::string& message);
+
+    // Convert error code to human readable string
+    static std::string error_code_to_string(int error_code);
+
+    // Get last system error message
+    static std::string get_last_system_error();
 };
 
 // RPC Client Factory

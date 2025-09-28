@@ -9,6 +9,10 @@ namespace bitrpc {
 
 BufferSerializer& BufferSerializer::instance() {
     static BufferSerializer instance;
+    static std::once_flag init_flag;
+    std::call_once(init_flag, [&instance]() {
+        instance.init_handlers();
+    });
     return instance;
 }
 
