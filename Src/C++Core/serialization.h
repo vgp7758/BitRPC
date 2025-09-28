@@ -223,24 +223,6 @@ private:
     std::unique_ptr<StreamResponseWriter> base_writer_;
 };
 
-// Network frame handling for streaming communication
-class NetworkFrameHandler {
-public:
-    static const uint32_t STREAM_END_MARKER = 0xFFFFFFFF;
-    static const uint32_t ERROR_MARKER = 0xFFFFFFFE;
-
-    // Read a complete frame from the stream
-    static std::vector<uint8_t> read_frame(void* socket);
-
-    // Write a frame to the stream
-    static bool write_frame(void* socket, const std::vector<uint8_t>& data);
-
-    // Write stream end marker
-    static bool write_end_marker(void* socket);
-
-    // Write error marker
-    static bool write_error_marker(void* socket, const std::string& error_msg);
-};
 
 // Buffer serializer interface with enhanced features
 class BufferSerializer {

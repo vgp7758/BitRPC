@@ -100,15 +100,16 @@ std::vector<uint8_t> TcpRpcClient::call(const std::string& method, const std::ve
 
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Send method name length and method name
-    uint32_t method_length = static_cast<uint32_t>(method.length());
-    send(sock, reinterpret_cast<const char*>(&method_length), sizeof(method_length), 0);
-    send(sock, method.c_str(), static_cast<int>(method.length()), 0);
+    // Create combined payload: method_name + serialized_request (aligned with C#)
+    std::vector<uint8_t> combined_payload;
+    combined_payload.reserve(method.size() + request.size());
+    combined_payload.insert(combined_payload.end(), method.begin(), method.end());
+    combined_payload.insert(combined_payload.end(), request.begin(), request.end());
 
-    // Send request length and request data
-    uint32_t request_length = static_cast<uint32_t>(request.size());
-    send(sock, reinterpret_cast<const char*>(&request_length), sizeof(request_length), 0);
-    send(sock, reinterpret_cast<const char*>(request.data()), static_cast<int>(request.size()), 0);
+    // Send combined payload length and data (C# compatible format)
+    uint32_t payload_length = static_cast<uint32_t>(combined_payload.size());
+    send(sock, reinterpret_cast<const char*>(&payload_length), sizeof(payload_length), 0);
+    send(sock, reinterpret_cast<const char*>(combined_payload.data()), static_cast<int>(combined_payload.size()), 0);
 
     // Receive response length
     uint32_t response_length = 0;
@@ -230,16 +231,17 @@ std::shared_ptr<StreamResponseReader> TcpRpcClientAsync::stream_async(const std:
 void TcpRpcClientAsync::send_stream_request(const std::string& method, const std::vector<uint8_t>& request) {
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Send stream indicator (special method name)
-    std::string stream_method = "STREAM:" + method;
-    uint32_t method_length = static_cast<uint32_t>(stream_method.length());
-    send(sock, reinterpret_cast<const char*>(&method_length), sizeof(method_length), 0);
-    send(sock, stream_method.c_str(), static_cast<int>(stream_method.length()), 0);
+    // Create combined payload: method_name + serialized_request (aligned with C#)
+    // No special STREAM prefix - server will detect streaming via method registration
+    std::vector<uint8_t> combined_payload;
+    combined_payload.reserve(method.size() + request.size());
+    combined_payload.insert(combined_payload.end(), method.begin(), method.end());
+    combined_payload.insert(combined_payload.end(), request.begin(), request.end());
 
-    // Send request length and request data
-    uint32_t request_length = static_cast<uint32_t>(request.size());
-    send(sock, reinterpret_cast<const char*>(&request_length), sizeof(request_length), 0);
-    send(sock, reinterpret_cast<const char*>(request.data()), static_cast<int>(request.size()), 0);
+    // Send combined payload length and data (C# compatible format)
+    uint32_t payload_length = static_cast<uint32_t>(combined_payload.size());
+    send(sock, reinterpret_cast<const char*>(&payload_length), sizeof(payload_length), 0);
+    send(sock, reinterpret_cast<const char*>(combined_payload.data()), static_cast<int>(combined_payload.size()), 0);
 }
 
 void TcpRpcClientAsync::initialize_network() {
@@ -289,15 +291,11 @@ std::vector<uint8_t> TcpStreamResponseReader::read_next() {
         return {};
     }
 
-    // Check for special markers
+    // Check for end-of-stream marker (zero-length frame, aligned with C#)
     if (frame_data.size() == sizeof(uint32_t)) {
         uint32_t marker = *reinterpret_cast<uint32_t*>(frame_data.data());
-        if (marker == NetworkFrameHandler::STREAM_END_MARKER) {
+        if (marker == 0) {  // C# uses zero-length frame as end marker
             stream_ended_ = true;
-            return {};
-        } else if (marker == NetworkFrameHandler::ERROR_MARKER) {
-            has_error_ = true;
-            error_message_ = "Stream error from server";
             return {};
         }
     }
@@ -327,7 +325,7 @@ std::string TcpStreamResponseReader::get_error_message() const {
 bool TcpStreamResponseReader::read_next_frame(std::vector<uint8_t>& data) {
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Read frame length
+    // Read frame length (C# compatible format)
     uint32_t frame_length = 0;
     int bytes_received = recv(sock, reinterpret_cast<char*>(&frame_length), sizeof(frame_length), 0);
 
@@ -341,11 +339,10 @@ bool TcpStreamResponseReader::read_next_frame(std::vector<uint8_t>& data) {
         return false;
     }
 
-    // Check for special markers
-    if (frame_length == NetworkFrameHandler::STREAM_END_MARKER ||
-        frame_length == NetworkFrameHandler::ERROR_MARKER) {
+    // Check for end-of-stream marker (zero-length frame, aligned with C#)
+    if (frame_length == 0) {
         data.resize(sizeof(uint32_t));
-        *reinterpret_cast<uint32_t*>(data.data()) = frame_length;
+        *reinterpret_cast<uint32_t*>(data.data()) = 0;
         return true;
     }
 
@@ -410,8 +407,10 @@ void TcpStreamResponseWriter::close() {
     std::lock_guard<std::mutex> lock(socket_mutex_);
 
     if (connection_valid_ && !stream_ended_) {
-        // Send end marker
-        NetworkFrameHandler::write_end_marker(socket_);
+        // Send end marker (zero-length frame, aligned with C#)
+        SOCKET sock = reinterpret_cast<SOCKET>(socket_);
+        uint32_t zero_length = 0;
+        send(sock, reinterpret_cast<const char*>(&zero_length), sizeof(zero_length), 0);
         stream_ended_ = true;
     }
 }
@@ -427,7 +426,7 @@ std::string TcpStreamResponseWriter::get_error_message() const {
 bool TcpStreamResponseWriter::write_frame(const std::vector<uint8_t>& data) {
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Write frame length
+    // Write frame length (C# compatible format)
     uint32_t frame_length = static_cast<uint32_t>(data.size());
     int bytes_sent = send(sock, reinterpret_cast<const char*>(&frame_length), sizeof(frame_length), 0);
     if (bytes_sent != sizeof(frame_length)) {
@@ -450,10 +449,8 @@ void TcpStreamResponseWriter::mark_error(const std::string& error) {
     error_message_ = error;
     connection_valid_ = false;
 
-    // Try to send error marker
-    if (socket_) {
-        NetworkFrameHandler::write_error_marker(socket_, error);
-    }
+    // For C# compatibility, we don't send special error markers
+    // The connection will simply be closed
 }
 
 std::shared_ptr<IRpcClient> RpcClientFactory::create_tcp_client(const std::string& host, int port) {
