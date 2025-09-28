@@ -9,6 +9,20 @@ namespace test::protocol {
 
 int UserInfoSerializer::hash_code() const { return 1876671786; }
 
+bool is_default_userinfo(const UserInfo* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.user_id != 0) return false;
+    if (obj.username != "") return false;
+    if (obj.email != "") return false;
+    if (!obj.roles.empty()) return false;
+    if (obj.is_active != false) return false;
+    if (obj.created_at != std::chrono::system_clock::time_point()) return false;
+    return true;
+}
+
+bool is_default_userinfo(const UserInfo& value) { return is_default_userinfo(&value); }
+
 void UserInfoSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const UserInfo*>(obj);
     uint32_t mask0 = 0;
@@ -22,7 +36,7 @@ void UserInfoSerializer::write(const void* obj, StreamWriter& writer) const {
     if (mask0 & (1u << 0)) { Int64Handler::instance().write(&obj_ref.user_id, writer); }
     if (mask0 & (1u << 1)) { StringHandler::instance().write(&obj_ref.username, writer); }
     if (mask0 & (1u << 2)) { StringHandler::instance().write(&obj_ref.email, writer); }
-    if (mask0 & (1u << 3)) { writer.write_vector(obj_ref.roles, [&writer](const auto& x) { StringHandler::instance().write(&x, writer) }); }
+    if (mask0 & (1u << 3)) { writer.write_vector<std::string>(obj_ref.roles, [&writer](const std::string& x) { StringHandler::instance().write(&x, writer); }); }
     if (mask0 & (1u << 4)) { BoolHandler::instance().write(&obj_ref.is_active, writer); }
     if (mask0 & (1u << 5)) { DateTimeHandler::instance().write(&obj_ref.created_at, writer); }
 }
@@ -33,7 +47,7 @@ void* UserInfoSerializer::read(StreamReader& reader) const {
     if (mask0 & (1u << 0)) { obj_ptr->user_id = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }
     if (mask0 & (1u << 1)) { obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
     if (mask0 & (1u << 2)) { obj_ptr->email = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
-    if (mask0 & (1u << 3)) { obj_ptr->roles = reader.read_vector([&reader]() { return *static_cast<std::string*>(StringHandler::instance().read(reader)); }); }
+    if (mask0 & (1u << 3)) { obj_ptr->roles = reader.read_vector<std::string>([&reader]() { return *static_cast<std::string*>(StringHandler::instance().read(reader)); }); }
     if (mask0 & (1u << 4)) { obj_ptr->is_active = *static_cast<bool*>(BoolHandler::instance().read(reader)); }
     if (mask0 & (1u << 5)) { obj_ptr->created_at = *static_cast<std::chrono::system_clock::time_point*>(DateTimeHandler::instance().read(reader)); }
     return obj_ptr.release();

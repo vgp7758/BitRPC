@@ -38,11 +38,13 @@ message EchoRequest {
 message EchoResponse {
     string message = 3
     int64 timestamp = 4
-    string server_time = 5
+    repeated UserInfo users = 5
+    string server_time = 6
 }
 
 service TestService {
     rpc Login(LoginRequest) returns (LoginResponse)
     rpc GetUser(GetUserRequest) returns (GetUserResponse)
     rpc Echo(EchoRequest) returns (EchoResponse)
+    rpc StreamUsers(GetUserRequest) returns (stream UserInfo)
 }

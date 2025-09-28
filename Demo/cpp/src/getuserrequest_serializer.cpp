@@ -9,6 +9,15 @@ namespace test::protocol {
 
 int GetUserRequestSerializer::hash_code() const { return -1420445027; }
 
+bool is_default_getuserrequest(const GetUserRequest* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.user_id != 0) return false;
+    return true;
+}
+
+bool is_default_getuserrequest(const GetUserRequest& value) { return is_default_getuserrequest(&value); }
+
 void GetUserRequestSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const GetUserRequest*>(obj);
     uint32_t mask0 = 0;

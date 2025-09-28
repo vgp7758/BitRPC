@@ -9,6 +9,16 @@ namespace test::protocol {
 
 int EchoRequestSerializer::hash_code() const { return 1660195677; }
 
+bool is_default_echorequest(const EchoRequest* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.message != "") return false;
+    if (obj.timestamp != 0) return false;
+    return true;
+}
+
+bool is_default_echorequest(const EchoRequest& value) { return is_default_echorequest(&value); }
+
 void EchoRequestSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const EchoRequest*>(obj);
     uint32_t mask0 = 0;

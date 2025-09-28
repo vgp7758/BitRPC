@@ -9,6 +9,16 @@ namespace test::protocol {
 
 int GetUserResponseSerializer::hash_code() const { return -1624387005; }
 
+bool is_default_getuserresponse(const GetUserResponse* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (!is_default_userinfo(&obj.user)) return false;
+    if (obj.found != false) return false;
+    return true;
+}
+
+bool is_default_getuserresponse(const GetUserResponse& value) { return is_default_getuserresponse(&value); }
+
 void GetUserResponseSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const GetUserResponse*>(obj);
     uint32_t mask0 = 0;

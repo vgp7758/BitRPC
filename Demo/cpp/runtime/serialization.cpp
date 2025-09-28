@@ -2,6 +2,8 @@
 #include <stdexcept>
 #include <chrono>
 #include <ctime>
+#include <cstring>
+#include <algorithm>
 
 namespace bitrpc {
 
@@ -258,6 +260,155 @@ bool DateTimeHandler::is_default(const void* obj) const {
 bool Vector3Handler::is_default(const void* obj) const {
     auto value = static_cast<const Vector3*>(obj);
     return value->x == 0.0f && value->y == 0.0f && value->z == 0.0f;
+}
+
+// StreamWriter core implementation
+StreamWriter::StreamWriter() : position_(0) {}
+
+void StreamWriter::write_int32(int32_t value) {
+    buffer_.resize(buffer_.size() + sizeof(int32_t));
+    std::memcpy(buffer_.data() + position_, &value, sizeof(int32_t));
+    position_ += sizeof(int32_t);
+}
+
+void StreamWriter::write_int64(int64_t value) {
+    buffer_.resize(buffer_.size() + sizeof(int64_t));
+    std::memcpy(buffer_.data() + position_, &value, sizeof(int64_t));
+    position_ += sizeof(int64_t);
+}
+
+void StreamWriter::write_uint32(uint32_t value) {
+    buffer_.resize(buffer_.size() + sizeof(uint32_t));
+    std::memcpy(buffer_.data() + position_, &value, sizeof(uint32_t));
+    position_ += sizeof(uint32_t);
+}
+
+void StreamWriter::write_float(float value) {
+    buffer_.resize(buffer_.size() + sizeof(float));
+    std::memcpy(buffer_.data() + position_, &value, sizeof(float));
+    position_ += sizeof(float);
+}
+
+void StreamWriter::write_double(double value) {
+    buffer_.resize(buffer_.size() + sizeof(double));
+    std::memcpy(buffer_.data() + position_, &value, sizeof(double));
+    position_ += sizeof(double);
+}
+
+void StreamWriter::write_bool(bool value) {
+    buffer_.resize(buffer_.size() + sizeof(bool));
+    std::memcpy(buffer_.data() + position_, &value, sizeof(bool));
+    position_ += sizeof(bool);
+}
+
+void StreamWriter::write_string(const std::string& value) {
+    write_int32(static_cast<int32_t>(value.size()));
+    buffer_.resize(buffer_.size() + value.size());
+    std::memcpy(buffer_.data() + position_, value.data(), value.size());
+    position_ += value.size();
+}
+
+void StreamWriter::write_bytes(const std::vector<uint8_t>& bytes) {
+    write_int32(static_cast<int32_t>(bytes.size()));
+    buffer_.resize(buffer_.size() + bytes.size());
+    std::memcpy(buffer_.data() + position_, bytes.data(), bytes.size());
+    position_ += bytes.size();
+}
+
+void StreamWriter::write_object(const void* obj, size_t type_hash) {
+    BufferSerializer::instance().serialize_impl(obj, *this, type_hash);
+}
+
+std::vector<uint8_t> StreamWriter::to_array() const {
+    return buffer_;
+}
+
+// StreamReader core implementation
+StreamReader::StreamReader(const std::vector<uint8_t>& data) : data_(data), position_(0) {}
+
+int32_t StreamReader::read_int32() {
+    if (position_ + sizeof(int32_t) > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    int32_t value;
+    std::memcpy(&value, data_.data() + position_, sizeof(int32_t));
+    position_ += sizeof(int32_t);
+    return value;
+}
+
+int64_t StreamReader::read_int64() {
+    if (position_ + sizeof(int64_t) > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    int64_t value;
+    std::memcpy(&value, data_.data() + position_, sizeof(int64_t));
+    position_ += sizeof(int64_t);
+    return value;
+}
+
+uint32_t StreamReader::read_uint32() {
+    if (position_ + sizeof(uint32_t) > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    uint32_t value;
+    std::memcpy(&value, data_.data() + position_, sizeof(uint32_t));
+    position_ += sizeof(uint32_t);
+    return value;
+}
+
+float StreamReader::read_float() {
+    if (position_ + sizeof(float) > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    float value;
+    std::memcpy(&value, data_.data() + position_, sizeof(float));
+    position_ += sizeof(float);
+    return value;
+}
+
+double StreamReader::read_double() {
+    if (position_ + sizeof(double) > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    double value;
+    std::memcpy(&value, data_.data() + position_, sizeof(double));
+    position_ += sizeof(double);
+    return value;
+}
+
+bool StreamReader::read_bool() {
+    if (position_ + sizeof(bool) > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    bool value;
+    std::memcpy(&value, data_.data() + position_, sizeof(bool));
+    position_ += sizeof(bool);
+    return value;
+}
+
+std::string StreamReader::read_string() {
+    int32_t length = read_int32();
+    if (position_ + length > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    std::string value(data_.data() + position_, data_.data() + position_ + length);
+    position_ += length;
+    return value;
+}
+
+std::vector<uint8_t> StreamReader::read_bytes() {
+    int32_t length = read_int32();
+    if (position_ + length > data_.size()) {
+        throw std::runtime_error("Buffer underflow");
+    }
+    std::vector<uint8_t> value(data_.data() + position_, data_.data() + position_ + length);
+    position_ += length;
+    return value;
+}
+
+void* StreamReader::read_object() {
+    // For now, return nullptr - in a full implementation this would read type info
+    return nullptr;
 }
 
 } // namespace bitrpc

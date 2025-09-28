@@ -13,6 +13,7 @@ UserInfo::UserInfo() {
     email = "";
     roles = {};
     is_active = false;
+    created_at = std::chrono::system_clock::time_point();
 }
 
 LoginRequest::LoginRequest() {
@@ -42,6 +43,7 @@ EchoRequest::EchoRequest() {
 EchoResponse::EchoResponse() {
     message = "";
     timestamp = 0;
+    users = {};
     server_time = "";
 }
 

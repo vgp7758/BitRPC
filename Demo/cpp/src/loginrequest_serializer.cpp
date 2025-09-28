@@ -9,6 +9,16 @@ namespace test::protocol {
 
 int LoginRequestSerializer::hash_code() const { return 175975135; }
 
+bool is_default_loginrequest(const LoginRequest* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.username != "") return false;
+    if (obj.password != "") return false;
+    return true;
+}
+
+bool is_default_loginrequest(const LoginRequest& value) { return is_default_loginrequest(&value); }
+
 void LoginRequestSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const LoginRequest*>(obj);
     uint32_t mask0 = 0;

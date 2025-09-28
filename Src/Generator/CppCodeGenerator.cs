@@ -395,7 +395,7 @@ namespace BitRPC.Protocol.Generator
             {
                 if (method.ResponseStream)
                 {
-                    sb.AppendLine($"    std::shared_ptr<StreamReader> {method.Name}StreamAsync(const {method.RequestType}& request);");
+                    sb.AppendLine($"    std::shared_ptr<StreamResponseReader> {method.Name}StreamAsync(const {method.RequestType}& request);");
                 }
                 else
                 {
@@ -430,7 +430,7 @@ namespace BitRPC.Protocol.Generator
             {
                 if (method.ResponseStream)
                 {
-                    sb.AppendLine($"std::shared_ptr<StreamReader> {service.Name}Client::{method.Name}StreamAsync(const {method.RequestType}& request) {{");
+                    sb.AppendLine($"std::shared_ptr<StreamResponseReader> {service.Name}Client::{method.Name}StreamAsync(const {method.RequestType}& request) {{");
                     sb.AppendLine($"    return stream_async<{method.RequestType}>(\"{service.Name}.{method.Name}\", request);");
                     sb.AppendLine("}");
                     sb.AppendLine();
@@ -497,7 +497,7 @@ namespace BitRPC.Protocol.Generator
             {
                 if (method.ResponseStream)
                 {
-                    sb.AppendLine($"    virtual std::shared_ptr<StreamReader> {method.Name}StreamAsync(const {method.RequestType}& request) = 0;");
+                    sb.AppendLine($"    virtual std::shared_ptr<StreamResponseReader> {method.Name}StreamAsync(const {method.RequestType}& request) = 0;");
                 }
                 else
                 {
@@ -537,7 +537,7 @@ namespace BitRPC.Protocol.Generator
             {
                 if (method.ResponseStream)
                 {
-                    sb.AppendLine($"    std::shared_ptr<StreamReader> {method.Name}StreamAsync(const {method.RequestType}& request) override;");
+                    sb.AppendLine($"    std::shared_ptr<StreamResponseReader> {method.Name}StreamAsync(const {method.RequestType}& request) override;");
                 }
                 else
                 {
@@ -554,7 +554,7 @@ namespace BitRPC.Protocol.Generator
             {
                 if (method.ResponseStream)
                 {
-                    sb.AppendLine($"    virtual std::shared_ptr<StreamReader> {method.Name}StreamAsync_impl(const {method.RequestType}& request) = 0;");
+                    sb.AppendLine($"    virtual std::shared_ptr<StreamResponseReader> {method.Name}StreamAsync_impl(const {method.RequestType}& request) = 0;");
                 }
                 else
                 {
@@ -609,7 +609,7 @@ namespace BitRPC.Protocol.Generator
             {
                 if (method.ResponseStream)
                 {
-                    sb.AppendLine($"std::shared_ptr<StreamReader> {service.Name}ServiceBase::{method.Name}StreamAsync(const {method.RequestType}& request) {{");
+                    sb.AppendLine($"std::shared_ptr<StreamResponseReader> {service.Name}ServiceBase::{method.Name}StreamAsync(const {method.RequestType}& request) {{");
                     sb.AppendLine($"    return {method.Name}StreamAsync_impl(request);");
                     sb.AppendLine("}");
                     sb.AppendLine();

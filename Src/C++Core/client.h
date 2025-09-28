@@ -28,6 +28,7 @@ class IRpcClient {
 public:
     virtual ~IRpcClient() = default;
     virtual std::future<std::vector<uint8_t>> call_async(const std::string& method, const std::vector<uint8_t>& request) = 0;
+    virtual std::shared_ptr<StreamResponseReader> stream_async(const std::string& method, const std::vector<uint8_t>& request) = 0;
     virtual void connect(const std::string& host, int port) = 0;
     virtual void disconnect() = 0;
     virtual bool is_connected() const = 0;
@@ -42,6 +43,9 @@ public:
 protected:
     template<typename TRequest, typename TResponse>
     std::future<TResponse> call_async(const std::string& method, const TRequest& request);
+
+    template<typename TRequest>
+    std::shared_ptr<StreamResponseReader> stream_async(const std::string& method, const TRequest& request);
 
 private:
     std::shared_ptr<IRpcClient> client_;
@@ -82,15 +86,71 @@ public:
     void disconnect() override;
     bool is_connected() const override;
     std::future<std::vector<uint8_t>> call_async(const std::string& method, const std::vector<uint8_t>& request) override;
+    std::shared_ptr<StreamResponseReader> stream_async(const std::string& method, const std::vector<uint8_t>& request) override;
 
 private:
     void* socket_;
     bool connected_;
     std::mutex socket_mutex_;
+    std::string host_;
+    int port_;
 
     void initialize_network();
     void cleanup_network();
     std::vector<uint8_t> make_rpc_call(const std::string& method, const std::vector<uint8_t>& request);
+    void send_stream_request(const std::string& method, const std::vector<uint8_t>& request);
+};
+
+// TCP Stream Response Reader implementation
+class TcpStreamResponseReader : public StreamResponseReader {
+public:
+    TcpStreamResponseReader(void* socket, int response_type_hash, BufferSerializer& serializer);
+    ~TcpStreamResponseReader() override;
+
+    std::vector<uint8_t> read_next() override;
+    bool has_more() const override;
+    void close() override;
+    bool has_error() const override;
+    std::string get_error_message() const override;
+
+private:
+    void* socket_;
+    int response_type_hash_;
+    BufferSerializer& serializer_;
+    mutable std::mutex socket_mutex_;
+    bool stream_ended_;
+    bool has_error_;
+    std::string error_message_;
+    bool connection_closed_;
+
+    bool read_next_frame(std::vector<uint8_t>& data);
+    void mark_error(const std::string& error);
+};
+
+// TCP Stream Response Writer implementation
+class TcpStreamResponseWriter : public StreamResponseWriter {
+public:
+    TcpStreamResponseWriter(void* socket, int response_type_hash, BufferSerializer& serializer);
+    ~TcpStreamResponseWriter() override;
+
+    bool write(const void* item) override;
+    bool is_valid() const override;
+    void close() override;
+    bool has_error() const override;
+    std::string get_error_message() const override;
+
+private:
+    void* socket_;
+    int response_type_hash_;
+    BufferSerializer& serializer_;
+    mutable std::mutex socket_mutex_;
+    bool stream_ended_;
+    bool has_error_;
+    std::string error_message_;
+    bool connection_valid_;
+
+    bool write_frame(const std::vector<uint8_t>& data);
+    void mark_error(const std::string& error);
 };
 
 // RPC Client Factory
@@ -120,6 +180,18 @@ std::future<TResponse> BaseClient::call_async(const std::string& method, const T
         auto response_ptr = serializer.deserialize<TResponse>(reader);
         return std::move(*response_ptr);
     });
+}
+
+template<typename TRequest>
+std::shared_ptr<StreamResponseReader> BaseClient::stream_async(const std::string& method, const TRequest& request) {
+    // Serialize request
+    auto& serializer = BufferSerializer::instance();
+    StreamWriter writer;
+    serializer.serialize(&request, writer);
+    auto request_data = writer.to_array();
+
+    // Start streaming call
+    return client_->stream_async(method, request_data);
 }
 
 } // namespace bitrpc

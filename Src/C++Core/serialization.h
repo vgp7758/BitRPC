@@ -153,9 +153,93 @@ public:
 
     void* read_object();
 
+    // Check if more data is available
+    bool has_more_data() const { return position_ < data_.size(); }
+    size_t available_data() const { return data_.size() - position_; }
+
 private:
     std::vector<uint8_t> data_;
     size_t position_;
+};
+
+// Streaming reader interface for server-side streaming responses
+class StreamResponseReader {
+public:
+    virtual ~StreamResponseReader() = default;
+
+    // Read next item from stream, returns empty vector if stream ended
+    virtual std::vector<uint8_t> read_next() = 0;
+
+    // Check if stream has more data
+    virtual bool has_more() const = 0;
+
+    // Close the stream
+    virtual void close() = 0;
+
+    // Get error state
+    virtual bool has_error() const = 0;
+    virtual std::string get_error_message() const = 0;
+};
+
+
+// Stream response writer interface for server-side streaming
+class StreamResponseWriter {
+public:
+    virtual ~StreamResponseWriter() = default;
+
+    // Write an item to the stream
+    virtual bool write(const void* item) = 0;
+
+    // Check if writer is still valid
+    virtual bool is_valid() const = 0;
+
+    // Close the stream gracefully
+    virtual void close() = 0;
+
+    // Get error state
+    virtual bool has_error() const = 0;
+    virtual std::string get_error_message() const = 0;
+};
+
+// Template helper for typed stream writing
+template<typename T>
+class TypedStreamResponseWriter : public StreamResponseWriter {
+public:
+    explicit TypedStreamResponseWriter(std::unique_ptr<StreamResponseWriter> base_writer)
+        : base_writer_(std::move(base_writer)) {}
+
+    bool write(const T& item) {
+        return base_writer_->write(&item);
+    }
+
+    bool is_valid() const override { return base_writer_->is_valid(); }
+    void close() override { base_writer_->close(); }
+    bool has_error() const override { return base_writer_->has_error(); }
+    std::string get_error_message() const override { return base_writer_->get_error_message(); }
+
+    bool write(const void* item) override { return base_writer_->write(item); }
+
+private:
+    std::unique_ptr<StreamResponseWriter> base_writer_;
+};
+
+// Network frame handling for streaming communication
+class NetworkFrameHandler {
+public:
+    static const uint32_t STREAM_END_MARKER = 0xFFFFFFFF;
+    static const uint32_t ERROR_MARKER = 0xFFFFFFFE;
+
+    // Read a complete frame from the stream
+    static std::vector<uint8_t> read_frame(void* socket);
+
+    // Write a frame to the stream
+    static bool write_frame(void* socket, const std::vector<uint8_t>& data);
+
+    // Write stream end marker
+    static bool write_end_marker(void* socket);
+
+    // Write error marker
+    static bool write_error_marker(void* socket, const std::string& error_msg);
 };
 
 // Buffer serializer interface with enhanced features
@@ -407,6 +491,34 @@ private:
 inline BufferSerializer& get_serializer() {
     return BufferSerializer::instance();
 }
+
+// Template helper for typed stream reading
+template<typename T>
+class TypedStreamResponseReader : public StreamResponseReader {
+public:
+    explicit TypedStreamResponseReader(std::unique_ptr<StreamResponseReader> base_reader)
+        : base_reader_(std::move(base_reader)) {}
+
+    std::unique_ptr<T> read_next_typed() {
+        auto data = base_reader_->read_next();
+        if (data.empty()) {
+            return nullptr;
+        }
+        StreamReader reader(data);
+        auto obj = BufferSerializer::instance().deserialize<T>(reader);
+        return obj;
+    }
+
+    bool has_more() const override { return base_reader_->has_more(); }
+    void close() override { base_reader_->close(); }
+    bool has_error() const override { return base_reader_->has_error(); }
+    std::string get_error_message() const override { return base_reader_->get_error_message(); }
+
+    std::vector<uint8_t> read_next() override { return base_reader_->read_next(); }
+
+private:
+    std::unique_ptr<StreamResponseReader> base_reader_;
+};
 
 // Template implementations
 template<typename T>

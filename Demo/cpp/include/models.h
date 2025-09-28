@@ -69,9 +69,26 @@ struct EchoResponse {
 
     std::string message;
     int64_t timestamp;
+    std::vector<UserInfo> users;
     std::string server_time;
 
     EchoResponse();
 };
+
+// is_default declarations for generated messages
+bool is_default_userinfo(const UserInfo* value);
+bool is_default_userinfo(const UserInfo& value);
+bool is_default_loginrequest(const LoginRequest* value);
+bool is_default_loginrequest(const LoginRequest& value);
+bool is_default_loginresponse(const LoginResponse* value);
+bool is_default_loginresponse(const LoginResponse& value);
+bool is_default_getuserrequest(const GetUserRequest* value);
+bool is_default_getuserrequest(const GetUserRequest& value);
+bool is_default_getuserresponse(const GetUserResponse* value);
+bool is_default_getuserresponse(const GetUserResponse& value);
+bool is_default_echorequest(const EchoRequest* value);
+bool is_default_echorequest(const EchoRequest& value);
+bool is_default_echoresponse(const EchoResponse* value);
+bool is_default_echoresponse(const EchoResponse& value);
 
 }} // namespace bitrpc

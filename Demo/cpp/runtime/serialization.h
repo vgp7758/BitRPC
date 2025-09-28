@@ -204,15 +204,14 @@ public:
     TypeHandler* get_handler_by_hash_code(int hash_code) const;
     void register_handler_impl(size_t type_hash, std::shared_ptr<TypeHandler> handler);
     void init_handlers();
+    void serialize_impl(const void* obj, StreamWriter& writer, size_t type_hash);
+    void* deserialize_impl(StreamReader& reader);
 
 private:
     BufferSerializer() = default;
     std::unordered_map<size_t, std::shared_ptr<TypeHandler>> handlers_;
     std::unordered_map<int, std::shared_ptr<TypeHandler>> handlers_by_hash_code_;
-    std::mutex handlers_mutex_;
-
-    void serialize_impl(const void* obj, StreamWriter& writer, size_t type_hash);
-    void* deserialize_impl(StreamReader& reader);
+    mutable std::mutex handlers_mutex_;
 };
 
 // Type handlers

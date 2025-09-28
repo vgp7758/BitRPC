@@ -12,13 +12,13 @@ TestServiceServiceBase::TestServiceServiceBase() : BaseService("TestService") {
 }
 
 void TestServiceServiceBase::register_methods() {
-    register_async_method("Login", [this](const LoginRequest& request) {
+    register_async_method<LoginRequest, LoginResponse>("Login", [this](const LoginRequest& request) {
         return LoginAsync_impl(request);
     });
-    register_async_method("GetUser", [this](const GetUserRequest& request) {
+    register_async_method<GetUserRequest, GetUserResponse>("GetUser", [this](const GetUserRequest& request) {
         return GetUserAsync_impl(request);
     });
-    register_async_method("Echo", [this](const EchoRequest& request) {
+    register_async_method<EchoRequest, EchoResponse>("Echo", [this](const EchoRequest& request) {
         return EchoAsync_impl(request);
     });
 }
@@ -35,8 +35,5 @@ std::future<EchoResponse> TestServiceServiceBase::EchoAsync(const EchoRequest& r
     return EchoAsync_impl(request);
 }
 
-void TestServiceServiceBase::register_with_manager(ServiceManager& manager) {
-    manager.register_service(std::make_shared<TestServiceServiceBase>());
-}
 
 }} // namespace bitrpc

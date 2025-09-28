@@ -10,9 +10,6 @@
 namespace bitrpc {
 namespace test::protocol {
 
-inline bool is_default_userinfo(const UserInfo* value);
-inline bool is_default_userinfo(const UserInfo& value);
-
 class UserInfoSerializer : public TypeHandler {
 public:
     int hash_code() const override;
@@ -25,19 +22,5 @@ public:
     static void serialize(const UserInfo& obj, StreamWriter& writer);
     static std::unique_ptr<UserInfo> deserialize(StreamReader& reader);
 };
-
-inline bool is_default_userinfo(const UserInfo* value) {
-    if (value == nullptr) return true;
-    const auto& obj = *value;
-    if (obj.user_id != 0) return false;
-    if (obj.username != "") return false;
-    if (obj.email != "") return false;
-    if (!obj.roles.empty()) return false;
-    if (obj.is_active != false) return false;
-    if (obj.created_at != std::chrono::system_clock::time_point()) return false;
-    return true;
-}
-
-inline bool is_default_userinfo(const UserInfo& value) { return is_default_userinfo(&value); }
 
 }} // namespace bitrpc

@@ -10,9 +10,6 @@
 namespace bitrpc {
 namespace test::protocol {
 
-inline bool is_default_echorequest(const EchoRequest* value);
-inline bool is_default_echorequest(const EchoRequest& value);
-
 class EchoRequestSerializer : public TypeHandler {
 public:
     int hash_code() const override;
@@ -25,15 +22,5 @@ public:
     static void serialize(const EchoRequest& obj, StreamWriter& writer);
     static std::unique_ptr<EchoRequest> deserialize(StreamReader& reader);
 };
-
-inline bool is_default_echorequest(const EchoRequest* value) {
-    if (value == nullptr) return true;
-    const auto& obj = *value;
-    if (obj.message != "") return false;
-    if (obj.timestamp != 0) return false;
-    return true;
-}
-
-inline bool is_default_echorequest(const EchoRequest& value) { return is_default_echorequest(&value); }
 
 }} // namespace bitrpc

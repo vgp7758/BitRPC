@@ -10,9 +10,6 @@
 namespace bitrpc {
 namespace test::protocol {
 
-inline bool is_default_getuserresponse(const GetUserResponse* value);
-inline bool is_default_getuserresponse(const GetUserResponse& value);
-
 class GetUserResponseSerializer : public TypeHandler {
 public:
     int hash_code() const override;
@@ -25,15 +22,5 @@ public:
     static void serialize(const GetUserResponse& obj, StreamWriter& writer);
     static std::unique_ptr<GetUserResponse> deserialize(StreamReader& reader);
 };
-
-inline bool is_default_getuserresponse(const GetUserResponse* value) {
-    if (value == nullptr) return true;
-    const auto& obj = *value;
-    if (!is_default_userinfo(&obj.user)) return false;
-    if (obj.found != false) return false;
-    return true;
-}
-
-inline bool is_default_getuserresponse(const GetUserResponse& value) { return is_default_getuserresponse(&value); }
 
 }} // namespace bitrpc

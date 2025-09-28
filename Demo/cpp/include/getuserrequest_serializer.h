@@ -10,9 +10,6 @@
 namespace bitrpc {
 namespace test::protocol {
 
-inline bool is_default_getuserrequest(const GetUserRequest* value);
-inline bool is_default_getuserrequest(const GetUserRequest& value);
-
 class GetUserRequestSerializer : public TypeHandler {
 public:
     int hash_code() const override;
@@ -25,14 +22,5 @@ public:
     static void serialize(const GetUserRequest& obj, StreamWriter& writer);
     static std::unique_ptr<GetUserRequest> deserialize(StreamReader& reader);
 };
-
-inline bool is_default_getuserrequest(const GetUserRequest* value) {
-    if (value == nullptr) return true;
-    const auto& obj = *value;
-    if (obj.user_id != 0) return false;
-    return true;
-}
-
-inline bool is_default_getuserrequest(const GetUserRequest& value) { return is_default_getuserrequest(&value); }
 
 }} // namespace bitrpc

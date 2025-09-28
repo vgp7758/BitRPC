@@ -9,16 +9,30 @@ namespace test::protocol {
 
 int EchoResponseSerializer::hash_code() const { return -1786407677; }
 
+bool is_default_echoresponse(const EchoResponse* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.message != "") return false;
+    if (obj.timestamp != 0) return false;
+    if (!obj.users.empty()) return false;
+    if (obj.server_time != "") return false;
+    return true;
+}
+
+bool is_default_echoresponse(const EchoResponse& value) { return is_default_echoresponse(&value); }
+
 void EchoResponseSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const EchoResponse*>(obj);
     uint32_t mask0 = 0;
     if (!(obj_ref.message == "")) mask0 |= (1u << 2);
     if (!(obj_ref.timestamp == 0)) mask0 |= (1u << 3);
-    if (!(obj_ref.server_time == "")) mask0 |= (1u << 4);
+    if (!is_default_userinfo(&obj_ref.users)) mask0 |= (1u << 4);
+    if (!(obj_ref.server_time == "")) mask0 |= (1u << 5);
     writer.write_uint32(mask0);
     if (mask0 & (1u << 2)) { StringHandler::instance().write(&obj_ref.message, writer); }
     if (mask0 & (1u << 3)) { Int64Handler::instance().write(&obj_ref.timestamp, writer); }
-    if (mask0 & (1u << 4)) { StringHandler::instance().write(&obj_ref.server_time, writer); }
+    if (mask0 & (1u << 4)) { writer.write_vector<UserInfo>(obj_ref.users, [&writer](const UserInfo& x) { UserInfoSerializer::serialize(x, writer); }); }
+    if (mask0 & (1u << 5)) { StringHandler::instance().write(&obj_ref.server_time, writer); }
 }
 
 void* EchoResponseSerializer::read(StreamReader& reader) const {
@@ -26,7 +40,8 @@ void* EchoResponseSerializer::read(StreamReader& reader) const {
     uint32_t mask0 = reader.read_uint32();
     if (mask0 & (1u << 2)) { obj_ptr->message = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
     if (mask0 & (1u << 3)) { obj_ptr->timestamp = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }
-    if (mask0 & (1u << 4)) { obj_ptr->server_time = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
+    if (mask0 & (1u << 4)) { obj_ptr->users = reader.read_vector<UserInfo>([&reader]() { return *UserInfoSerializer::deserialize(reader); }); }
+    if (mask0 & (1u << 5)) { obj_ptr->server_time = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
     return obj_ptr.release();
 }
 

@@ -17,7 +17,6 @@ public:
     std::future<LoginResponse> LoginAsync(const LoginRequest& request) override;
     std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request) override;
     std::future<EchoResponse> EchoAsync(const EchoRequest& request) override;
-    static void register_with_manager(ServiceManager& manager);
 
 protected:
     void register_methods();
