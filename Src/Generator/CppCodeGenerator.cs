@@ -393,7 +393,14 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request);");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"    std::shared_ptr<StreamReader> {method.Name}StreamAsync(const {method.RequestType}& request);");
+                }
+                else
+                {
+                    sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request);");
+                }
             }
 
             sb.AppendLine();
@@ -421,10 +428,20 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}Client::{method.Name}Async(const {method.RequestType}& request) {{");
-                sb.AppendLine($"    return call_async<{method.RequestType}, {method.ResponseType}>(\"{service.Name}.{method.Name}\", request);");
-                sb.AppendLine("}");
-                sb.AppendLine();
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"std::shared_ptr<StreamReader> {service.Name}Client::{method.Name}StreamAsync(const {method.RequestType}& request) {{");
+                    sb.AppendLine($"    return stream_async<{method.RequestType}>(\"{service.Name}.{method.Name}\", request);");
+                    sb.AppendLine("}");
+                    sb.AppendLine();
+                }
+                else
+                {
+                    sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}Client::{method.Name}Async(const {method.RequestType}& request) {{");
+                    sb.AppendLine($"    return call_async<{method.RequestType}, {method.ResponseType}>(\"{service.Name}.{method.Name}\", request);");
+                    sb.AppendLine("}");
+                    sb.AppendLine();
+                }
             }
 
             sb.AppendLine($"std::shared_ptr<{service.Name}Client> {service.Name}Client::create_tcp_client(const std::string& host, int port) {{");
@@ -478,7 +495,14 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) = 0;");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"    virtual std::shared_ptr<StreamReader> {method.Name}StreamAsync(const {method.RequestType}& request) = 0;");
+                }
+                else
+                {
+                    sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) = 0;");
+                }
             }
 
             sb.AppendLine("};");
@@ -511,7 +535,14 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) override;");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"    std::shared_ptr<StreamReader> {method.Name}StreamAsync(const {method.RequestType}& request) override;");
+                }
+                else
+                {
+                    sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) override;");
+                }
             }
 
             //sb.AppendLine($"    static void register_with_manager(ServiceManager& manager);");
@@ -521,7 +552,14 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}Async_impl(const {method.RequestType}& request) = 0;");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"    virtual std::shared_ptr<StreamReader> {method.Name}StreamAsync_impl(const {method.RequestType}& request) = 0;");
+                }
+                else
+                {
+                    sb.AppendLine($"    virtual std::future<{method.ResponseType}> {method.Name}Async_impl(const {method.RequestType}& request) = 0;");
+                }
             }
 
             sb.AppendLine("};");
@@ -550,9 +588,18 @@ namespace BitRPC.Protocol.Generator
             {
                 var requestType = method.RequestType;
                 var responseType = method.ResponseType;
-                sb.AppendLine($"    register_async_method<{requestType}, {responseType}>(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
-                sb.AppendLine($"        return {method.Name}Async_impl(request);");
-                sb.AppendLine("    });");
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"    register_stream_method<{requestType}>(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
+                    sb.AppendLine($"        return {method.Name}StreamAsync_impl(request);");
+                    sb.AppendLine("    });");
+                }
+                else
+                {
+                    sb.AppendLine($"    register_async_method<{requestType}, {responseType}>(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
+                    sb.AppendLine($"        return {method.Name}Async_impl(request);");
+                    sb.AppendLine("    });");
+                }
             }
 
             sb.AppendLine("}");
@@ -560,10 +607,20 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}ServiceBase::{method.Name}Async(const {method.RequestType}& request) {{");
-                sb.AppendLine($"    return {method.Name}Async_impl(request);");
-                sb.AppendLine("}");
-                sb.AppendLine();
+                if (method.ResponseStream)
+                {
+                    sb.AppendLine($"std::shared_ptr<StreamReader> {service.Name}ServiceBase::{method.Name}StreamAsync(const {method.RequestType}& request) {{");
+                    sb.AppendLine($"    return {method.Name}StreamAsync_impl(request);");
+                    sb.AppendLine("}");
+                    sb.AppendLine();
+                }
+                else
+                {
+                    sb.AppendLine($"std::future<{method.ResponseType}> {service.Name}ServiceBase::{method.Name}Async(const {method.RequestType}& request) {{");
+                    sb.AppendLine($"    return {method.Name}Async_impl(request);");
+                    sb.AppendLine("}");
+                    sb.AppendLine();
+                }
             }
 
             //sb.AppendLine($"void {service.Name}ServiceBase::register_with_manager(ServiceManager& manager) {{");

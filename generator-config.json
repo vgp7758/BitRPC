@@ -6,19 +6,22 @@
       "name": "csharp",
       "enabled": true,
       "namespace": "Example.Protocol",
-      "runtimePath": "Src"
+      "runtimePath": "Src/CSharp",
+      "outputDirectory": "Generated/csharp"
     },
     {
       "name": "python",
       "enabled": true,
       "namespace": "example.protocol",
-      "runtimePath": "Src/Python"
+      "runtimePath": "Src/Python",
+      "outputDirectory": "Generated/python"
     },
     {
       "name": "cpp",
       "enabled": true,
       "namespace": "example.protocol",
       "runtimePath": "Src/C++Core",
+      "outputDirectory": "Generated/cpp",
       "specificOptions": {
         "Cpp": {
           "RuntimeIncludeDir": "runtime",
