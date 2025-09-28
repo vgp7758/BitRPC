@@ -7,62 +7,27 @@
 namespace bitrpc {
 namespace test::protocol {
 
-int LoginRequestSerializer::hash_code() const {
-    return 175975135;
-}
+int LoginRequestSerializer::hash_code() const { return 175975135; }
 
 void LoginRequestSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const LoginRequest*>(obj);
-    BitMask mask;
-
-    // Bit mask group 0
-    mask.set_bit(0, !is_default_string_username(obj_ref.username));
-    mask.set_bit(1, !is_default_string_password(obj_ref.password));
-    mask.write(writer);
-
-    // Write field values
-    if (mask.get_bit(0)) {
-        StringHandler::instance().write(&obj_ref.username, writer);
-    }
-    if (mask.get_bit(1)) {
-        StringHandler::instance().write(&obj_ref.password, writer);
-    }
+    uint32_t mask0 = 0;
+    if (!(obj_ref.username == "")) mask0 |= (1u << 0);
+    if (!(obj_ref.password == "")) mask0 |= (1u << 1);
+    writer.write_uint32(mask0);
+    if (mask0 & (1u << 0)) { StringHandler::instance().write(&obj_ref.username, writer); }
+    if (mask0 & (1u << 1)) { StringHandler::instance().write(&obj_ref.password, writer); }
 }
 
 void* LoginRequestSerializer::read(StreamReader& reader) const {
     auto obj_ptr = std::make_unique<LoginRequest>();
-
-    // Read bit mask group 0
-    BitMask mask0;
-    mask0.read(reader);
-
-    if (mask0.get_bit(0)) {
-        obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader));
-    }
-    if (mask0.get_bit(1)) {
-        obj_ptr->password = *static_cast<std::string*>(StringHandler::instance().read(reader));
-    }
+    uint32_t mask0 = reader.read_uint32();
+    if (mask0 & (1u << 0)) { obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
+    if (mask0 & (1u << 1)) { obj_ptr->password = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
     return obj_ptr.release();
 }
 
-bool LoginRequestSerializer::is_default(const void* obj) const {
-    const auto& typed_obj = *static_cast<const LoginRequest*>(obj);
-    return typed_obj == LoginRequest{};
-}
+void LoginRequestSerializer::serialize(const LoginRequest& obj, StreamWriter& writer) { instance().write(&obj, writer); }
+std::unique_ptr<LoginRequest> LoginRequestSerializer::deserialize(StreamReader& reader) { auto obj_ptr = std::unique_ptr<LoginRequest>(static_cast<LoginRequest*>(instance().read(reader))); return obj_ptr; }
 
-bool LoginRequestSerializer::is_default_string_username(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-bool LoginRequestSerializer::is_default_string_password(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-void LoginRequestSerializer::serialize(const LoginRequest& obj, StreamWriter& writer) {
-    instance().write(&obj, writer);
-}
-std::unique_ptr<LoginRequest> LoginRequestSerializer::deserialize(StreamReader& reader) {
-    auto obj_ptr = std::unique_ptr<LoginRequest>(static_cast<LoginRequest*>(instance().read(reader)));
-    return obj_ptr;
-}
 }} // namespace bitrpc

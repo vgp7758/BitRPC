@@ -5,34 +5,39 @@
 #pragma once
 
 #include "./serializer_registry.h"
+#include "./models.h"
 
 namespace bitrpc {
 namespace test::protocol {
+
+inline bool is_default_userinfo(const UserInfo* value);
+inline bool is_default_userinfo(const UserInfo& value);
 
 class UserInfoSerializer : public TypeHandler {
 public:
     int hash_code() const override;
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
-    bool is_default(const void* obj) const override;
+    bool is_default(const void* obj) const override { return is_default_userinfo(static_cast<const UserInfo*>(obj)); }
 
-    // Singleton instance
-    static UserInfoSerializer& instance() {
-        static UserInfoSerializer instance;
-        return instance;
-    }
+    static UserInfoSerializer& instance() { static UserInfoSerializer inst; return inst; }
 
-    // Static convenience methods (aligns with C#)
     static void serialize(const UserInfo& obj, StreamWriter& writer);
     static std::unique_ptr<UserInfo> deserialize(StreamReader& reader);
-
-private:
-    bool is_default_int64_user_id(const int64_t& value) const;
-    bool is_default_string_username(const std::string& value) const;
-    bool is_default_string_email(const std::string& value) const;
-    bool is_default_string_roles(const std::string& value) const;
-    bool is_default_bool_is_active(const bool& value) const;
-    bool is_default_datetime_created_at(const std::chrono::system_clock::time_point& value) const;
 };
+
+inline bool is_default_userinfo(const UserInfo* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.user_id != 0) return false;
+    if (obj.username != "") return false;
+    if (obj.email != "") return false;
+    if (!obj.roles.empty()) return false;
+    if (obj.is_active != false) return false;
+    if (obj.created_at != std::chrono::system_clock::time_point()) return false;
+    return true;
+}
+
+inline bool is_default_userinfo(const UserInfo& value) { return is_default_userinfo(&value); }
 
 }} // namespace bitrpc

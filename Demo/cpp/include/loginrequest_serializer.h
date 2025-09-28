@@ -5,30 +5,35 @@
 #pragma once
 
 #include "./serializer_registry.h"
+#include "./models.h"
 
 namespace bitrpc {
 namespace test::protocol {
+
+inline bool is_default_loginrequest(const LoginRequest* value);
+inline bool is_default_loginrequest(const LoginRequest& value);
 
 class LoginRequestSerializer : public TypeHandler {
 public:
     int hash_code() const override;
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
-    bool is_default(const void* obj) const override;
+    bool is_default(const void* obj) const override { return is_default_loginrequest(static_cast<const LoginRequest*>(obj)); }
 
-    // Singleton instance
-    static LoginRequestSerializer& instance() {
-        static LoginRequestSerializer instance;
-        return instance;
-    }
+    static LoginRequestSerializer& instance() { static LoginRequestSerializer inst; return inst; }
 
-    // Static convenience methods (aligns with C#)
     static void serialize(const LoginRequest& obj, StreamWriter& writer);
     static std::unique_ptr<LoginRequest> deserialize(StreamReader& reader);
-
-private:
-    bool is_default_string_username(const std::string& value) const;
-    bool is_default_string_password(const std::string& value) const;
 };
+
+inline bool is_default_loginrequest(const LoginRequest* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.username != "") return false;
+    if (obj.password != "") return false;
+    return true;
+}
+
+inline bool is_default_loginrequest(const LoginRequest& value) { return is_default_loginrequest(&value); }
 
 }} // namespace bitrpc

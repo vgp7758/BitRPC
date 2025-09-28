@@ -7,62 +7,27 @@
 namespace bitrpc {
 namespace test::protocol {
 
-int GetUserResponseSerializer::hash_code() const {
-    return 523096643;
-}
+int GetUserResponseSerializer::hash_code() const { return -1624387005; }
 
 void GetUserResponseSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const GetUserResponse*>(obj);
-    BitMask mask;
-
-    // Bit mask group 0
-    mask.set_bit(0, !is_default_struct_user(obj_ref.user));
-    mask.set_bit(1, !is_default_bool_found(obj_ref.found));
-    mask.write(writer);
-
-    // Write field values
-    if (mask.get_bit(0)) {
-        UserInfoSerializer::serialize(obj_ref.user, writer);
-    }
-    if (mask.get_bit(1)) {
-        BoolHandler::instance().write(&obj_ref.found, writer);
-    }
+    uint32_t mask0 = 0;
+    if (!is_default_userinfo(&obj_ref.user)) mask0 |= (1u << 0);
+    if (!(obj_ref.found == false)) mask0 |= (1u << 1);
+    writer.write_uint32(mask0);
+    if (mask0 & (1u << 0)) { UserInfoSerializer::serialize(obj_ref.user, writer); }
+    if (mask0 & (1u << 1)) { BoolHandler::instance().write(&obj_ref.found, writer); }
 }
 
 void* GetUserResponseSerializer::read(StreamReader& reader) const {
     auto obj_ptr = std::make_unique<GetUserResponse>();
-
-    // Read bit mask group 0
-    BitMask mask0;
-    mask0.read(reader);
-
-    if (mask0.get_bit(0)) {
-        obj_ptr->user = UserInfoSerializer::deserialize(reader);
-    }
-    if (mask0.get_bit(1)) {
-        obj_ptr->found = *static_cast<bool*>(BoolHandler::instance().read(reader));
-    }
+    uint32_t mask0 = reader.read_uint32();
+    if (mask0 & (1u << 0)) { obj_ptr->user = *UserInfoSerializer::deserialize(reader); }
+    if (mask0 & (1u << 1)) { obj_ptr->found = *static_cast<bool*>(BoolHandler::instance().read(reader)); }
     return obj_ptr.release();
 }
 
-bool GetUserResponseSerializer::is_default(const void* obj) const {
-    const auto& typed_obj = *static_cast<const GetUserResponse*>(obj);
-    return typed_obj == GetUserResponse{};
-}
+void GetUserResponseSerializer::serialize(const GetUserResponse& obj, StreamWriter& writer) { instance().write(&obj, writer); }
+std::unique_ptr<GetUserResponse> GetUserResponseSerializer::deserialize(StreamReader& reader) { auto obj_ptr = std::unique_ptr<GetUserResponse>(static_cast<GetUserResponse*>(instance().read(reader))); return obj_ptr; }
 
-bool GetUserResponseSerializer::is_default_struct_user(const void*& value) const {
-    return UserInfoSerializer::instance().is_default(&value);
-}
-
-bool GetUserResponseSerializer::is_default_bool_found(const bool& value) const {
-    return BoolHandler::instance().is_default(&value);
-}
-
-void GetUserResponseSerializer::serialize(const GetUserResponse& obj, StreamWriter& writer) {
-    instance().write(&obj, writer);
-}
-std::unique_ptr<GetUserResponse> GetUserResponseSerializer::deserialize(StreamReader& reader) {
-    auto obj_ptr = std::unique_ptr<GetUserResponse>(static_cast<GetUserResponse*>(instance().read(reader)));
-    return obj_ptr;
-}
 }} // namespace bitrpc

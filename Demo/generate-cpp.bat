@@ -18,7 +18,7 @@ echo   ]
 echo }
 ) > temp-config.json
 
-dotnet run --project Src/GeneratorApp -- temp-config.json
+dotnet run --project Src/GeneratorApp/GeneratorApp.csproj -- temp-config.json
 
 REM Clean up temporary config file
 del temp-config.json

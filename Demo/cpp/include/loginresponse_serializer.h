@@ -5,32 +5,37 @@
 #pragma once
 
 #include "./serializer_registry.h"
+#include "./models.h"
 
 namespace bitrpc {
 namespace test::protocol {
+
+inline bool is_default_loginresponse(const LoginResponse* value);
+inline bool is_default_loginresponse(const LoginResponse& value);
 
 class LoginResponseSerializer : public TypeHandler {
 public:
     int hash_code() const override;
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
-    bool is_default(const void* obj) const override;
+    bool is_default(const void* obj) const override { return is_default_loginresponse(static_cast<const LoginResponse*>(obj)); }
 
-    // Singleton instance
-    static LoginResponseSerializer& instance() {
-        static LoginResponseSerializer instance;
-        return instance;
-    }
+    static LoginResponseSerializer& instance() { static LoginResponseSerializer inst; return inst; }
 
-    // Static convenience methods (aligns with C#)
     static void serialize(const LoginResponse& obj, StreamWriter& writer);
     static std::unique_ptr<LoginResponse> deserialize(StreamReader& reader);
-
-private:
-    bool is_default_bool_success(const bool& value) const;
-    bool is_default_struct_user(const void*& value) const;
-    bool is_default_string_token(const std::string& value) const;
-    bool is_default_string_error_message(const std::string& value) const;
 };
+
+inline bool is_default_loginresponse(const LoginResponse* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.success != false) return false;
+    if (!is_default_userinfo(&obj.user)) return false;
+    if (obj.token != "") return false;
+    if (obj.error_message != "") return false;
+    return true;
+}
+
+inline bool is_default_loginresponse(const LoginResponse& value) { return is_default_loginresponse(&value); }
 
 }} // namespace bitrpc

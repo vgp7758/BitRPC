@@ -23,7 +23,7 @@ std::future<EchoResponse> TestServiceClient::EchoAsync(const EchoRequest& reques
 }
 
 std::shared_ptr<TestServiceClient> TestServiceClient::create_tcp_client(const std::string& host, int port) {
-    auto tcp_client = RpcClientFactory::create_tcp_client_native(host, port);
-    return std::make_shared<TestServiceClient>(std::static_pointer_cast<IRpcClient>(tcp_client));
+    auto tcp_client = RpcClientFactory::create_tcp_client(host, port);
+    return std::make_shared<TestServiceClient>(tcp_client);
 }
 }} // namespace bitrpc

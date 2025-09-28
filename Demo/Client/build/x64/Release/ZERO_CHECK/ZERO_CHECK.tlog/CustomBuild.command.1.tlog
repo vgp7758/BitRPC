@@ -1,0 +1,10 @@
+^D:\PROJECTS\BITRPC\BITRPC\DEMO\CLIENT\BUILD\CMAKEFILES\40E51380532408F29D8D20D0EE072314\GENERATE.STAMP.RULE
+setlocal
+D:\Programs\env\mingw64\bin\cmake.exe -SD:/Projects/BitRPC/BitRPC/Demo/Client -BD:/Projects/BitRPC/BitRPC/Demo/Client/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Projects/BitRPC/BitRPC/Demo/Client/build/TestClient.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

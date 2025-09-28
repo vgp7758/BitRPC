@@ -5,6 +5,7 @@
 #pragma once
 
 #include "../runtime/client.h"
+#include "./models.h"
 #include <future>
 
 namespace bitrpc {
@@ -17,6 +18,8 @@ public:
     std::future<LoginResponse> LoginAsync(const LoginRequest& request);
     std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request);
     std::future<EchoResponse> EchoAsync(const EchoRequest& request);
+
+    static std::shared_ptr<TestServiceClient> create_tcp_client(const std::string& host, int port);
 };
 
 }} // namespace bitrpc

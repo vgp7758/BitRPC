@@ -7,106 +7,39 @@
 namespace bitrpc {
 namespace test::protocol {
 
-int UserInfoSerializer::hash_code() const {
-    return 1876671786;
-}
+int UserInfoSerializer::hash_code() const { return 1876671786; }
 
 void UserInfoSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const UserInfo*>(obj);
-    BitMask mask;
-
-    // Bit mask group 0
-    mask.set_bit(0, !is_default_int64_user_id(obj_ref.user_id));
-    mask.set_bit(1, !is_default_string_username(obj_ref.username));
-    mask.set_bit(2, !is_default_string_email(obj_ref.email));
-    mask.set_bit(3, !is_default_string_roles(obj_ref.roles));
-    mask.set_bit(4, !is_default_bool_is_active(obj_ref.is_active));
-    mask.set_bit(5, !is_default_datetime_created_at(obj_ref.created_at));
-    mask.write(writer);
-
-    // Write field values
-    if (mask.get_bit(0)) {
-        Int64Handler::instance().write(&obj_ref.user_id, writer);
-    }
-    if (mask.get_bit(1)) {
-        StringHandler::instance().write(&obj_ref.username, writer);
-    }
-    if (mask.get_bit(2)) {
-        StringHandler::instance().write(&obj_ref.email, writer);
-    }
-    if (mask.get_bit(3)) {
-        writer.write_vector(obj_ref.roles, [](const auto& x) { StringHandler::instance().write(&x, writer) });
-    }
-    if (mask.get_bit(4)) {
-        BoolHandler::instance().write(&obj_ref.is_active, writer);
-    }
-    if (mask.get_bit(5)) {
-        DateTimeHandler::instance().write(&obj_ref.created_at, writer);
-    }
+    uint32_t mask0 = 0;
+    if (!(obj_ref.user_id == 0)) mask0 |= (1u << 0);
+    if (!(obj_ref.username == "")) mask0 |= (1u << 1);
+    if (!(obj_ref.email == "")) mask0 |= (1u << 2);
+    if (!obj_ref.roles.empty()) mask0 |= (1u << 3);
+    if (!(obj_ref.is_active == false)) mask0 |= (1u << 4);
+    if (!(obj_ref.created_at == std::chrono::system_clock::time_point())) mask0 |= (1u << 5);
+    writer.write_uint32(mask0);
+    if (mask0 & (1u << 0)) { Int64Handler::instance().write(&obj_ref.user_id, writer); }
+    if (mask0 & (1u << 1)) { StringHandler::instance().write(&obj_ref.username, writer); }
+    if (mask0 & (1u << 2)) { StringHandler::instance().write(&obj_ref.email, writer); }
+    if (mask0 & (1u << 3)) { writer.write_vector(obj_ref.roles, [&writer](const auto& x) { StringHandler::instance().write(&x, writer) }); }
+    if (mask0 & (1u << 4)) { BoolHandler::instance().write(&obj_ref.is_active, writer); }
+    if (mask0 & (1u << 5)) { DateTimeHandler::instance().write(&obj_ref.created_at, writer); }
 }
 
 void* UserInfoSerializer::read(StreamReader& reader) const {
     auto obj_ptr = std::make_unique<UserInfo>();
-
-    // Read bit mask group 0
-    BitMask mask0;
-    mask0.read(reader);
-
-    if (mask0.get_bit(0)) {
-        obj_ptr->user_id = *static_cast<int64_t*>(Int64Handler::instance().read(reader));
-    }
-    if (mask0.get_bit(1)) {
-        obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader));
-    }
-    if (mask0.get_bit(2)) {
-        obj_ptr->email = *static_cast<std::string*>(StringHandler::instance().read(reader));
-    }
-    if (mask0.get_bit(3)) {
-        obj_ptr->roles = reader.read_vector([]() { return *static_cast<std::string*>(StringHandler::instance().read(reader)); });
-    }
-    if (mask0.get_bit(4)) {
-        obj_ptr->is_active = *static_cast<bool*>(BoolHandler::instance().read(reader));
-    }
-    if (mask0.get_bit(5)) {
-        obj_ptr->created_at = *static_cast<std::chrono::system_clock::time_point*>(DateTimeHandler::instance().read(reader));
-    }
+    uint32_t mask0 = reader.read_uint32();
+    if (mask0 & (1u << 0)) { obj_ptr->user_id = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }
+    if (mask0 & (1u << 1)) { obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
+    if (mask0 & (1u << 2)) { obj_ptr->email = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
+    if (mask0 & (1u << 3)) { obj_ptr->roles = reader.read_vector([&reader]() { return *static_cast<std::string*>(StringHandler::instance().read(reader)); }); }
+    if (mask0 & (1u << 4)) { obj_ptr->is_active = *static_cast<bool*>(BoolHandler::instance().read(reader)); }
+    if (mask0 & (1u << 5)) { obj_ptr->created_at = *static_cast<std::chrono::system_clock::time_point*>(DateTimeHandler::instance().read(reader)); }
     return obj_ptr.release();
 }
 
-bool UserInfoSerializer::is_default(const void* obj) const {
-    const auto& typed_obj = *static_cast<const UserInfo*>(obj);
-    return typed_obj == UserInfo{};
-}
+void UserInfoSerializer::serialize(const UserInfo& obj, StreamWriter& writer) { instance().write(&obj, writer); }
+std::unique_ptr<UserInfo> UserInfoSerializer::deserialize(StreamReader& reader) { auto obj_ptr = std::unique_ptr<UserInfo>(static_cast<UserInfo*>(instance().read(reader))); return obj_ptr; }
 
-bool UserInfoSerializer::is_default_int64_user_id(const int64_t& value) const {
-    return Int64Handler::instance().is_default(&value);
-}
-
-bool UserInfoSerializer::is_default_string_username(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-bool UserInfoSerializer::is_default_string_email(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-bool UserInfoSerializer::is_default_string_roles(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-bool UserInfoSerializer::is_default_bool_is_active(const bool& value) const {
-    return BoolHandler::instance().is_default(&value);
-}
-
-bool UserInfoSerializer::is_default_datetime_created_at(const std::chrono::system_clock::time_point& value) const {
-    return DateTimeHandler::instance().is_default(&value);
-}
-
-void UserInfoSerializer::serialize(const UserInfo& obj, StreamWriter& writer) {
-    instance().write(&obj, writer);
-}
-std::unique_ptr<UserInfo> UserInfoSerializer::deserialize(StreamReader& reader) {
-    auto obj_ptr = std::unique_ptr<UserInfo>(static_cast<UserInfo*>(instance().read(reader)));
-    return obj_ptr;
-}
 }} // namespace bitrpc

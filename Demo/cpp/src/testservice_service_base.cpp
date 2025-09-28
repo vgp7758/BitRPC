@@ -7,7 +7,7 @@
 namespace bitrpc {
 namespace test::protocol {
 
-TestServiceServiceBase::TestServiceServiceBase() {
+TestServiceServiceBase::TestServiceServiceBase() : BaseService("TestService") {
     register_methods();
 }
 

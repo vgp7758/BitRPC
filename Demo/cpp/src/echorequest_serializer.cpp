@@ -7,62 +7,27 @@
 namespace bitrpc {
 namespace test::protocol {
 
-int EchoRequestSerializer::hash_code() const {
-    return 1660195677;
-}
+int EchoRequestSerializer::hash_code() const { return 1660195677; }
 
 void EchoRequestSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const EchoRequest*>(obj);
-    BitMask mask;
-
-    // Bit mask group 0
-    mask.set_bit(0, !is_default_string_message(obj_ref.message));
-    mask.set_bit(1, !is_default_int64_timestamp(obj_ref.timestamp));
-    mask.write(writer);
-
-    // Write field values
-    if (mask.get_bit(0)) {
-        StringHandler::instance().write(&obj_ref.message, writer);
-    }
-    if (mask.get_bit(1)) {
-        Int64Handler::instance().write(&obj_ref.timestamp, writer);
-    }
+    uint32_t mask0 = 0;
+    if (!(obj_ref.message == "")) mask0 |= (1u << 0);
+    if (!(obj_ref.timestamp == 0)) mask0 |= (1u << 1);
+    writer.write_uint32(mask0);
+    if (mask0 & (1u << 0)) { StringHandler::instance().write(&obj_ref.message, writer); }
+    if (mask0 & (1u << 1)) { Int64Handler::instance().write(&obj_ref.timestamp, writer); }
 }
 
 void* EchoRequestSerializer::read(StreamReader& reader) const {
     auto obj_ptr = std::make_unique<EchoRequest>();
-
-    // Read bit mask group 0
-    BitMask mask0;
-    mask0.read(reader);
-
-    if (mask0.get_bit(0)) {
-        obj_ptr->message = *static_cast<std::string*>(StringHandler::instance().read(reader));
-    }
-    if (mask0.get_bit(1)) {
-        obj_ptr->timestamp = *static_cast<int64_t*>(Int64Handler::instance().read(reader));
-    }
+    uint32_t mask0 = reader.read_uint32();
+    if (mask0 & (1u << 0)) { obj_ptr->message = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
+    if (mask0 & (1u << 1)) { obj_ptr->timestamp = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }
     return obj_ptr.release();
 }
 
-bool EchoRequestSerializer::is_default(const void* obj) const {
-    const auto& typed_obj = *static_cast<const EchoRequest*>(obj);
-    return typed_obj == EchoRequest{};
-}
+void EchoRequestSerializer::serialize(const EchoRequest& obj, StreamWriter& writer) { instance().write(&obj, writer); }
+std::unique_ptr<EchoRequest> EchoRequestSerializer::deserialize(StreamReader& reader) { auto obj_ptr = std::unique_ptr<EchoRequest>(static_cast<EchoRequest*>(instance().read(reader))); return obj_ptr; }
 
-bool EchoRequestSerializer::is_default_string_message(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-bool EchoRequestSerializer::is_default_int64_timestamp(const int64_t& value) const {
-    return Int64Handler::instance().is_default(&value);
-}
-
-void EchoRequestSerializer::serialize(const EchoRequest& obj, StreamWriter& writer) {
-    instance().write(&obj, writer);
-}
-std::unique_ptr<EchoRequest> EchoRequestSerializer::deserialize(StreamReader& reader) {
-    auto obj_ptr = std::unique_ptr<EchoRequest>(static_cast<EchoRequest*>(instance().read(reader)));
-    return obj_ptr;
-}
 }} // namespace bitrpc

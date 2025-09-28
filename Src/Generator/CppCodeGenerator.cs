@@ -102,6 +102,15 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine();
             }
 
+            // Declarations of is_default_* (pointer & reference overloads) for all messages
+            sb.AppendLine("// is_default declarations for generated messages");
+            foreach (var message in definition.Messages)
+            {
+                var lower = message.Name.ToLower();
+                sb.AppendLine($"bool is_default_{lower}(const {message.Name}* value);");
+                sb.AppendLine($"bool is_default_{lower}(const {message.Name}& value);");
+            }
+            sb.AppendLine();
             sb.AppendLine("}} // namespace bitrpc");
 
             return sb.ToString();
@@ -166,36 +175,28 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("#pragma once");
             sb.AppendLine();
             var runtimeInclude = GetRuntimeInclude(options);
-            sb.AppendLine($"#include \"./serializer_registry.h\"");
-            sb.AppendLine($"#include \"./models.h\"");
+            sb.AppendLine("#include \"./serializer_registry.h\"");
+            sb.AppendLine("#include \"./models.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
+            var lowerName = message.Name.ToLower();
+            // Only rely on declarations from models.h
             sb.AppendLine($"class {message.Name}Serializer : public TypeHandler {{");
             sb.AppendLine("public:");
-            sb.AppendLine($"    int hash_code() const override;");
+            sb.AppendLine("    int hash_code() const override;");
             sb.AppendLine("    void write(const void* obj, StreamWriter& writer) const override;");
             sb.AppendLine("    void* read(StreamReader& reader) const override;");
-            sb.AppendLine("    bool is_default(const void* obj) const override;");
+            sb.AppendLine("    bool is_default(const void* obj) const override { return is_default_" + lowerName + "(static_cast<const " + message.Name + "*>(obj)); }");
             sb.AppendLine();
-            sb.AppendLine($"    // Singleton instance");
-            sb.AppendLine($"    static {message.Name}Serializer& instance() {{");
-            sb.AppendLine($"        static {message.Name}Serializer instance;");
-            sb.AppendLine($"        return instance;");
-            sb.AppendLine($"    }}");
+            sb.AppendLine("    static " + message.Name + "Serializer& instance() { static " + message.Name + "Serializer inst; return inst; }");
             sb.AppendLine();
-            sb.AppendLine($"    // Static convenience methods (aligns with C#)");
-            sb.AppendLine($"    static void serialize(const {message.Name}& obj, StreamWriter& writer);");
-            sb.AppendLine($"    static std::unique_ptr<{message.Name}> deserialize(StreamReader& reader);");
-            sb.AppendLine();
+            sb.AppendLine("    static void serialize(const " + message.Name + "& obj, StreamWriter& writer);");
+            sb.AppendLine("    static std::unique_ptr<" + message.Name + "> deserialize(StreamReader& reader);");
             sb.AppendLine("};");
             sb.AppendLine();
-            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}* value);");
-            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}& value);");
-            sb.AppendLine();
             sb.AppendLine("}} // namespace bitrpc");
-
             return sb.ToString();
         }
 
@@ -203,135 +204,86 @@ namespace BitRPC.Protocol.Generator
         {
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{message.Name}_serializer.cpp", options));
-            sb.AppendLine($"#include \"../include/{message.Name.ToLower()}_serializer.h\"");
+            sb.AppendLine("#include \"../include/" + message.Name.ToLower() + "_serializer.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
-
-            // Pre-compute stable hash in generator and embed constant
             var stableHash = ComputeStableHash(message.Name);
-            sb.AppendLine($"int {message.Name}Serializer::hash_code() const {{");
-            sb.AppendLine($"    return {stableHash};");
-            sb.AppendLine("}");
+            sb.AppendLine("int " + message.Name + "Serializer::hash_code() const { return " + stableHash + "; }");
             sb.AppendLine();
-
-            // Generate is_default helpers implementation (inline for now)
-            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}* value) {{");
+            // Implement is_default_* functions here
+            var lower = message.Name.ToLower();
+            sb.AppendLine("bool is_default_" + lower + "(const " + message.Name + "* value) {");
             sb.AppendLine("    if (value == nullptr) return true;");
             sb.AppendLine("    const auto& obj = *value;");
             foreach (var field in message.Fields)
             {
                 if (field.IsRepeated)
                 {
-                    sb.AppendLine($"    if (!obj.{field.Name}.empty()) return false;");
+                    sb.AppendLine("    if (!obj." + field.Name + ".empty()) return false;");
                 }
                 else if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
                 {
-                    sb.AppendLine($"    if (!is_default_{field.CustomType.ToLower()}(&obj.{field.Name})) return false;");
+                    sb.AppendLine("    if (!is_default_" + field.CustomType.ToLower() + "(&obj." + field.Name + ")) return false;");
                 }
                 else
                 {
-                    var defaultValue = GetCppDefaultValueForType(field.Type);
-                    sb.AppendLine($"    if (obj.{field.Name} != {defaultValue}) return false;");
+                    var defVal = GetCppDefaultValueForType(field.Type);
+                    sb.AppendLine("    if (obj." + field.Name + " != " + defVal + ") return false;");
                 }
             }
             sb.AppendLine("    return true;");
             sb.AppendLine("}");
             sb.AppendLine();
-            sb.AppendLine($"bool is_default_{message.Name.ToLower()}(const {message.Name}& value) {{");
-            sb.AppendLine($"    return is_default_{message.Name.ToLower()}(&value);");
-            sb.AppendLine("}");
+            sb.AppendLine("bool is_default_" + lower + "(const " + message.Name + "& value) { return is_default_" + lower + "(&value); }");
             sb.AppendLine();
-
-            // Field grouping based on field.Id (align with C#)
-            var fieldGroups = message.Fields.Select(f => new { Field = f, Index = f.Id - 1 })
-                                            .GroupBy(x => x.Index / 32)
-                                            .ToList();
+            // Field groups
+            var fieldGroups = message.Fields.Select(f => new { Field = f, Index = f.Id - 1 }).GroupBy(x => x.Index / 32).ToList();
             int groupCount = fieldGroups.Count;
-
-            sb.AppendLine($"void {message.Name}Serializer::write(const void* obj, StreamWriter& writer) const {{");
-            sb.AppendLine($"    const auto& obj_ref = *static_cast<const {message.Name}*>(obj);");
-            sb.AppendLine("    // Bit mask aggregation using discrete uint32_t variables");
-            for (int g = 0; g < groupCount; g++)
+            sb.AppendLine("void " + message.Name + "Serializer::write(const void* obj, StreamWriter& writer) const {");
+            sb.AppendLine("    const auto& obj_ref = *static_cast<const " + message.Name + "*>(obj);");
+            for (int g = 0; g < groupCount; g++) sb.AppendLine("    uint32_t mask" + g + " = 0;");
+            foreach (var grp in fieldGroups.Select((grp, gi) => new { grp, gi }))
             {
-                sb.AppendLine($"    uint32_t mask{g} = 0;");
-            }
-            sb.AppendLine();
-
-            // Set bits
-            for (int group = 0; group < groupCount; group++)
-            {
-                var fields = fieldGroups[group].ToList();
-                foreach (var fieldInfo in fields)
+                foreach (var fi in grp.grp)
                 {
-                    var field = fieldInfo.Field;
-                    int bitPos = fieldInfo.Index % 32;
+                    int bitPos = fi.Index % 32;
+                    var field = fi.Field;
                     if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
-                    {
-                        sb.AppendLine($"    if (!is_default_{field.CustomType.ToLower()}(&obj_ref.{field.Name})) mask{group} |= (1u << {bitPos});");
-                    }
+                        sb.AppendLine("    if (!is_default_" + field.CustomType.ToLower() + "(&obj_ref." + field.Name + ")) mask" + grp.gi + " |= (1u << " + bitPos + ");");
                     else if (field.IsRepeated)
-                    {
-                        sb.AppendLine($"    if (!obj_ref.{field.Name}.empty()) mask{group} |= (1u << {bitPos});");
-                    }
+                        sb.AppendLine("    if (!obj_ref." + field.Name + ".empty()) mask" + grp.gi + " |= (1u << " + bitPos + ");");
                     else
                     {
-                        var defaultValue = GetCppDefaultValueForType(field.Type);
-                        sb.AppendLine($"    if (!(obj_ref.{field.Name} == {defaultValue})) mask{group} |= (1u << {bitPos});");
+                        var defVal = GetCppDefaultValueForType(field.Type);
+                        sb.AppendLine("    if (!(obj_ref." + field.Name + " == " + defVal + ")) mask" + grp.gi + " |= (1u << " + bitPos + ");");
                     }
                 }
             }
-            sb.AppendLine();
-            sb.AppendLine("    // Write mask groups in order");
-            for (int g = 0; g < groupCount; g++)
-            {
-                sb.AppendLine($"    writer.write_uint32(mask{g});");
-            }
-            sb.AppendLine();
-            sb.AppendLine("    // Write field values guarded by mask bits");
+            for (int g = 0; g < groupCount; g++) sb.AppendLine("    writer.write_uint32(mask" + g + ");");
             foreach (var field in message.Fields)
             {
-                int index = field.Id - 1;
-                int group = index / 32;
-                int bitPos = index % 32;
-                sb.AppendLine($"    if (mask{group} & (1u << {bitPos})) {{");
-                sb.AppendLine($"        {GenerateCppWriteField(field)}");
-                sb.AppendLine("    }");
+                int index = field.Id - 1; int group = index / 32; int bitPos = index % 32;
+                sb.AppendLine("    if (mask" + group + " & (1u << " + bitPos + ")) { " + GenerateCppWriteField(field) + " }");
             }
             sb.AppendLine("}");
             sb.AppendLine();
-
-            sb.AppendLine($"void* {message.Name}Serializer::read(StreamReader& reader) const {{");
-            sb.AppendLine($"    auto obj_ptr = std::make_unique<{message.Name}>();");
-            for (int g = 0; g < groupCount; g++)
-            {
-                sb.AppendLine($"    uint32_t mask{g} = reader.read_uint32();");
-            }
-            sb.AppendLine();
+            sb.AppendLine("void* " + message.Name + "Serializer::read(StreamReader& reader) const {");
+            sb.AppendLine("    auto obj_ptr = std::make_unique<" + message.Name + ">();");
+            for (int g = 0; g < groupCount; g++) sb.AppendLine("    uint32_t mask" + g + " = reader.read_uint32();");
             foreach (var field in message.Fields)
             {
-                int index = field.Id - 1;
-                int group = index / 32;
-                int bitPos = index % 32;
-                sb.AppendLine($"    if (mask{group} & (1u << {bitPos})) {{");
-                sb.AppendLine($"        {GenerateCppReadField(field)}");
-                sb.AppendLine("    }");
+                int index = field.Id - 1; int group = index / 32; int bitPos = index % 32;
+                sb.AppendLine("    if (mask" + group + " & (1u << " + bitPos + ")) { " + GenerateCppReadField(field) + " }");
             }
             sb.AppendLine("    return obj_ptr.release();");
             sb.AppendLine("}");
             sb.AppendLine();
-
-            sb.AppendLine($"void {message.Name}Serializer::serialize(const {message.Name}& obj, StreamWriter& writer) {{");
-            sb.AppendLine("    instance().write(&obj, writer);");
-            sb.AppendLine("}");
-            sb.AppendLine();
-            sb.AppendLine($"std::unique_ptr<{message.Name}> {message.Name}Serializer::deserialize(StreamReader& reader) {{");
-            sb.AppendLine($"    auto obj_ptr = std::unique_ptr<{message.Name}>(static_cast<{message.Name}*>(instance().read(reader)));\n    return obj_ptr;");
-            sb.AppendLine("}");
+            sb.AppendLine("void " + message.Name + "Serializer::serialize(const " + message.Name + "& obj, StreamWriter& writer) { instance().write(&obj, writer); }");
+            sb.AppendLine("std::unique_ptr<" + message.Name + "> " + message.Name + "Serializer::deserialize(StreamReader& reader) { auto obj_ptr = std::unique_ptr<" + message.Name + ">(static_cast<" + message.Name + "*>(instance().read(reader))); return obj_ptr; }");
             sb.AppendLine();
             sb.AppendLine("}} // namespace bitrpc");
-
             return sb.ToString();
         }
 
@@ -562,7 +514,7 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine($"    std::future<{method.ResponseType}> {method.Name}Async(const {method.RequestType}& request) override;");
             }
 
-            sb.AppendLine($"    static void register_with_manager(ServiceManager& manager);");
+            //sb.AppendLine($"    static void register_with_manager(ServiceManager& manager);");
             sb.AppendLine();
             sb.AppendLine("protected:");
             sb.AppendLine("    void register_methods();");
@@ -596,7 +548,9 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var method in service.Methods)
             {
-                sb.AppendLine($"    register_async_method(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
+                var requestType = method.RequestType;
+                var responseType = method.ResponseType;
+                sb.AppendLine($"    register_async_method<{requestType}, {responseType}>(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
                 sb.AppendLine($"        return {method.Name}Async_impl(request);");
                 sb.AppendLine("    });");
             }
@@ -612,9 +566,9 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine();
             }
 
-            sb.AppendLine($"void {service.Name}ServiceBase::register_with_manager(ServiceManager& manager) {{");
-            sb.AppendLine($"    manager.register_service(std::make_shared<{service.Name}ServiceBase>());");
-            sb.AppendLine("}");
+            //sb.AppendLine($"void {service.Name}ServiceBase::register_with_manager(ServiceManager& manager) {{");
+            //sb.AppendLine($"    manager.register_service(instance);");
+            //sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine("}} // namespace bitrpc");
 
@@ -774,17 +728,7 @@ namespace BitRPC.Protocol.Generator
         private string GetCppDefaultValue(ProtocolField field)
         {
             if (field.IsRepeated) return "{}";
-
-            return field.Type switch
-            {
-                FieldType.Int32 => "0",
-                FieldType.Int64 => "0",
-                FieldType.Float => "0.0f",
-                FieldType.Double => "0.0",
-                FieldType.Bool => "false",
-                FieldType.String => "\"\"",
-                _ => ""
-            };
+            return GetCppDefaultValueForType(field.Type);
         }
 
         private string GetCppDefaultValueForType(FieldType type)
@@ -807,10 +751,22 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"writer.write_vector(obj_ref.{field.Name}, [](const auto& x) {{ {GenerateCppWriteValueForField(field, "x")} }});";
+                var elemType = GetCppTypeNameForField(field);
+                return $"writer.write_vector<{elemType}>(obj_ref.{field.Name}, [&writer](const {elemType}& x) {{ {GenerateCppWriteValueForField(field, "x")}; }});";
             }
 
             return $"{GenerateCppWriteValueForField(field, $"obj_ref.{field.Name}")};";
+        }
+
+        private string GenerateCppReadField(ProtocolField field)
+        {
+            if (field.IsRepeated)
+            {
+                var elemType = GetCppTypeNameForField(field);
+                return $"obj_ptr->{field.Name} = reader.read_vector<{elemType}>([&reader]() {{ return {GenerateCppReadValueForField(field)}; }});";
+            }
+
+            return $"obj_ptr->{field.Name} = {GenerateCppReadValueForField(field)};";
         }
 
         private string GenerateCppWriteValueForField(ProtocolField field, string value)
@@ -823,16 +779,6 @@ namespace BitRPC.Protocol.Generator
             // For built-in types, use the singleton handler
             var handlerName = GetSingletonHandlerForType(field.Type);
             return $"{handlerName}.write(&{value}, writer)";
-        }
-
-        private string GenerateCppReadField(ProtocolField field)
-        {
-            if (field.IsRepeated)
-            {
-                return $"obj_ptr->{field.Name} = reader.read_vector([]() {{ return {GenerateCppReadValueForField(field)}; }});";
-            }
-
-            return $"obj_ptr->{field.Name} = {GenerateCppReadValueForField(field)};";
         }
 
         private string GenerateCppReadValueForField(ProtocolField field)

@@ -5,6 +5,8 @@
 #pragma once
 
 #include "../runtime/server.h"
+#include "./models.h"
+#include "./itestservice_service.h"
 
 namespace bitrpc {
 namespace test::protocol {
@@ -18,7 +20,7 @@ public:
     static void register_with_manager(ServiceManager& manager);
 
 protected:
-    void register_methods() override;
+    void register_methods();
     virtual std::future<LoginResponse> LoginAsync_impl(const LoginRequest& request) = 0;
     virtual std::future<GetUserResponse> GetUserAsync_impl(const GetUserRequest& request) = 0;
     virtual std::future<EchoResponse> EchoAsync_impl(const EchoRequest& request) = 0;

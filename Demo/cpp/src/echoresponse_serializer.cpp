@@ -7,73 +7,30 @@
 namespace bitrpc {
 namespace test::protocol {
 
-int EchoResponseSerializer::hash_code() const {
-    return 361075971;
-}
+int EchoResponseSerializer::hash_code() const { return -1786407677; }
 
 void EchoResponseSerializer::write(const void* obj, StreamWriter& writer) const {
     const auto& obj_ref = *static_cast<const EchoResponse*>(obj);
-    BitMask mask;
-
-    // Bit mask group 0
-    mask.set_bit(0, !is_default_string_message(obj_ref.message));
-    mask.set_bit(1, !is_default_int64_timestamp(obj_ref.timestamp));
-    mask.set_bit(2, !is_default_string_server_time(obj_ref.server_time));
-    mask.write(writer);
-
-    // Write field values
-    if (mask.get_bit(0)) {
-        StringHandler::instance().write(&obj_ref.message, writer);
-    }
-    if (mask.get_bit(1)) {
-        Int64Handler::instance().write(&obj_ref.timestamp, writer);
-    }
-    if (mask.get_bit(2)) {
-        StringHandler::instance().write(&obj_ref.server_time, writer);
-    }
+    uint32_t mask0 = 0;
+    if (!(obj_ref.message == "")) mask0 |= (1u << 2);
+    if (!(obj_ref.timestamp == 0)) mask0 |= (1u << 3);
+    if (!(obj_ref.server_time == "")) mask0 |= (1u << 4);
+    writer.write_uint32(mask0);
+    if (mask0 & (1u << 2)) { StringHandler::instance().write(&obj_ref.message, writer); }
+    if (mask0 & (1u << 3)) { Int64Handler::instance().write(&obj_ref.timestamp, writer); }
+    if (mask0 & (1u << 4)) { StringHandler::instance().write(&obj_ref.server_time, writer); }
 }
 
 void* EchoResponseSerializer::read(StreamReader& reader) const {
     auto obj_ptr = std::make_unique<EchoResponse>();
-
-    // Read bit mask group 0
-    BitMask mask0;
-    mask0.read(reader);
-
-    if (mask0.get_bit(0)) {
-        obj_ptr->message = *static_cast<std::string*>(StringHandler::instance().read(reader));
-    }
-    if (mask0.get_bit(1)) {
-        obj_ptr->timestamp = *static_cast<int64_t*>(Int64Handler::instance().read(reader));
-    }
-    if (mask0.get_bit(2)) {
-        obj_ptr->server_time = *static_cast<std::string*>(StringHandler::instance().read(reader));
-    }
+    uint32_t mask0 = reader.read_uint32();
+    if (mask0 & (1u << 2)) { obj_ptr->message = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
+    if (mask0 & (1u << 3)) { obj_ptr->timestamp = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }
+    if (mask0 & (1u << 4)) { obj_ptr->server_time = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
     return obj_ptr.release();
 }
 
-bool EchoResponseSerializer::is_default(const void* obj) const {
-    const auto& typed_obj = *static_cast<const EchoResponse*>(obj);
-    return typed_obj == EchoResponse{};
-}
+void EchoResponseSerializer::serialize(const EchoResponse& obj, StreamWriter& writer) { instance().write(&obj, writer); }
+std::unique_ptr<EchoResponse> EchoResponseSerializer::deserialize(StreamReader& reader) { auto obj_ptr = std::unique_ptr<EchoResponse>(static_cast<EchoResponse*>(instance().read(reader))); return obj_ptr; }
 
-bool EchoResponseSerializer::is_default_string_message(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-bool EchoResponseSerializer::is_default_int64_timestamp(const int64_t& value) const {
-    return Int64Handler::instance().is_default(&value);
-}
-
-bool EchoResponseSerializer::is_default_string_server_time(const std::string& value) const {
-    return StringHandler::instance().is_default(&value);
-}
-
-void EchoResponseSerializer::serialize(const EchoResponse& obj, StreamWriter& writer) {
-    instance().write(&obj, writer);
-}
-std::unique_ptr<EchoResponse> EchoResponseSerializer::deserialize(StreamReader& reader) {
-    auto obj_ptr = std::unique_ptr<EchoResponse>(static_cast<EchoResponse*>(instance().read(reader)));
-    return obj_ptr;
-}
 }} // namespace bitrpc

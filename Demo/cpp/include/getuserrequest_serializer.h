@@ -5,29 +5,34 @@
 #pragma once
 
 #include "./serializer_registry.h"
+#include "./models.h"
 
 namespace bitrpc {
 namespace test::protocol {
+
+inline bool is_default_getuserrequest(const GetUserRequest* value);
+inline bool is_default_getuserrequest(const GetUserRequest& value);
 
 class GetUserRequestSerializer : public TypeHandler {
 public:
     int hash_code() const override;
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
-    bool is_default(const void* obj) const override;
+    bool is_default(const void* obj) const override { return is_default_getuserrequest(static_cast<const GetUserRequest*>(obj)); }
 
-    // Singleton instance
-    static GetUserRequestSerializer& instance() {
-        static GetUserRequestSerializer instance;
-        return instance;
-    }
+    static GetUserRequestSerializer& instance() { static GetUserRequestSerializer inst; return inst; }
 
-    // Static convenience methods (aligns with C#)
     static void serialize(const GetUserRequest& obj, StreamWriter& writer);
     static std::unique_ptr<GetUserRequest> deserialize(StreamReader& reader);
-
-private:
-    bool is_default_int64_user_id(const int64_t& value) const;
 };
+
+inline bool is_default_getuserrequest(const GetUserRequest* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.user_id != 0) return false;
+    return true;
+}
+
+inline bool is_default_getuserrequest(const GetUserRequest& value) { return is_default_getuserrequest(&value); }
 
 }} // namespace bitrpc

@@ -5,30 +5,35 @@
 #pragma once
 
 #include "./serializer_registry.h"
+#include "./models.h"
 
 namespace bitrpc {
 namespace test::protocol {
+
+inline bool is_default_echorequest(const EchoRequest* value);
+inline bool is_default_echorequest(const EchoRequest& value);
 
 class EchoRequestSerializer : public TypeHandler {
 public:
     int hash_code() const override;
     void write(const void* obj, StreamWriter& writer) const override;
     void* read(StreamReader& reader) const override;
-    bool is_default(const void* obj) const override;
+    bool is_default(const void* obj) const override { return is_default_echorequest(static_cast<const EchoRequest*>(obj)); }
 
-    // Singleton instance
-    static EchoRequestSerializer& instance() {
-        static EchoRequestSerializer instance;
-        return instance;
-    }
+    static EchoRequestSerializer& instance() { static EchoRequestSerializer inst; return inst; }
 
-    // Static convenience methods (aligns with C#)
     static void serialize(const EchoRequest& obj, StreamWriter& writer);
     static std::unique_ptr<EchoRequest> deserialize(StreamReader& reader);
-
-private:
-    bool is_default_string_message(const std::string& value) const;
-    bool is_default_int64_timestamp(const int64_t& value) const;
 };
+
+inline bool is_default_echorequest(const EchoRequest* value) {
+    if (value == nullptr) return true;
+    const auto& obj = *value;
+    if (obj.message != "") return false;
+    if (obj.timestamp != 0) return false;
+    return true;
+}
+
+inline bool is_default_echorequest(const EchoRequest& value) { return is_default_echorequest(&value); }
 
 }} // namespace bitrpc
