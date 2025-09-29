@@ -7,13 +7,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="..\Parser\PDLParser.cs" />
-    <Compile Include="..\Generator\CodeGeneratorCore.cs" />
-    <Compile Include="..\Generator\CSharpCodeGenerator.cs" />
-    <Compile Include="..\Generator\PythonCodeGenerator.cs" />
-    <Compile Include="..\Generator\CppCodeGenerator.cs" />
-    <Compile Include="..\Generator\HashCodeHelper.cs" />
-  </ItemGroup>
-
 </Project>
