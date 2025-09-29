@@ -212,6 +212,18 @@ namespace BitRPC.Serialization
             }
         }
 
+        public void WriteVector3(Vector3 vec)
+        {
+            WriteFloat(vec.x);
+            WriteFloat(vec.y);
+            WriteFloat(vec.z);
+        }
+
+        public void WriteDateTime(DateTime dt)
+        {
+            WriteInt64(dt.ToBinary());
+        }
+
         public void WriteObject(object obj)
         {
             if (obj == null)
@@ -318,6 +330,21 @@ namespace BitRPC.Serialization
                 list.Add(readFunc(this));
             }
             return list;
+        }
+
+        public Vector3 ReadVector3()
+        {
+            var vec = new Vector3();
+            vec.x = ReadFloat();
+            vec.y = ReadFloat();
+            vec.z = ReadFloat();
+            return vec;
+        }
+
+        public DateTime ReadDateTime()
+        {
+            var binary = ReadInt64();
+            return DateTime.FromBinary(binary);
         }
 
         public object ReadObject()
