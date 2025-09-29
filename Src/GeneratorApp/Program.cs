@@ -94,8 +94,9 @@ namespace BitRPC.GeneratorApp
 
                             Console.WriteLine($"Copying runtime for {lang.Name} from '{lang.RuntimePath}' to '{destRuntimeDir}'...");
                             CopyDirectory(lang.RuntimePath, destRuntimeDir);
-
-                            TryEnsurePythonRuntimePackageInit(destRuntimeDir);
+                            
+                            if (options.Language == TargetLanguage.Python)
+                                TryEnsurePythonRuntimePackageInit(destRuntimeDir);
 
                             // Set language-specific hints so codegen can reference runtime relatively
                             switch (options.Language)
