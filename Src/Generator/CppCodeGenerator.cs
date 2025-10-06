@@ -250,10 +250,10 @@ namespace BitRPC.Protocol.Generator
                 {
                     int bitPos = fi.Index % 32;
                     var field = fi.Field;
+                    if (field.IsRepeated)
+                        sb.AppendLine("    if (!obj_ref." + field.Name + ".empty()) mask" + grp.gi + " |= (1u << " + bitPos + ");");
                     if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
                         sb.AppendLine("    if (!is_default_" + field.CustomType.ToLower() + "(&obj_ref." + field.Name + ")) mask" + grp.gi + " |= (1u << " + bitPos + ");");
-                    else if (field.IsRepeated)
-                        sb.AppendLine("    if (!obj_ref." + field.Name + ".empty()) mask" + grp.gi + " |= (1u << " + bitPos + ");");
                     else
                     {
                         var defVal = GetCppDefaultValueForType(field.Type);

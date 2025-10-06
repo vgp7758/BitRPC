@@ -522,7 +522,8 @@ bool TcpStreamResponseWriter::write_frame(const std::vector<uint8_t>& data) {
     // Write frame data in chunks if necessary
     size_t total_sent = 0;
     while (total_sent < data.size()) {
-        int chunk_size = std::min(static_cast<size_t>(8192), data.size() - total_sent); // 8KB chunks
+		size_t remaining = data.size() - total_sent;
+		int chunk_size = remaining < 8192 ? static_cast<int>(remaining) : 8192;
         bytes_sent = send(sock, reinterpret_cast<const char*>(data.data() + total_sent), chunk_size, 0);
         if (bytes_sent <= 0) {
             mark_error("Failed to send frame data: connection may be broken");

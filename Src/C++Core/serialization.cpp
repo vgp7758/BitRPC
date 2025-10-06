@@ -4,16 +4,26 @@
 #include <ctime>
 #include <cstring>
 #include <algorithm>
+#include <mutex>
 
 namespace bitrpc {
 
 BufferSerializer& BufferSerializer::instance() {
-    static BufferSerializer instance;
-    static std::once_flag init_flag;
-    std::call_once(init_flag, [&instance]() {
-        instance.init_handlers();
-    });
-    return instance;
+    static BufferSerializer* instance;
+	static std::mutex init_mutex;
+
+    if (instance == nullptr) {
+		std::lock_guard<std::mutex> lock(init_mutex);
+        if (instance == nullptr) {
+            instance = new BufferSerializer();
+            instance->init_handlers();
+		}
+    }
+    //static std::once_flag init_flag;
+    //std::call_once(init_flag, [&instance]() {
+    //    instance.init_handlers();
+    //});
+    return *instance;
 }
 
 TypeHandler* BufferSerializer::get_handler(size_t type_hash) const {
