@@ -59,10 +59,15 @@ protected:
     void register_async_method(const std::string& method_name,
                                std::function<std::future<TResponse>(const TRequest&)> method);
 
-private:
+    template<typename TRequest>
+    void register_stream_method(const std::string& method_name,
+                               std::function<std::shared_ptr<StreamResponseReader>(const TRequest&)> method);
+
+protected:
     std::string name_;
     std::unordered_map<std::string, std::function<void*(void*)>> methods_;
     std::unordered_map<std::string, std::function<std::future<void*>(void*)>> async_methods_;
+    std::unordered_map<std::string, std::function<std::shared_ptr<StreamResponseReader>(void*)>> stream_methods_;
     mutable std::mutex methods_mutex_;
 };
 
@@ -133,6 +138,17 @@ void BaseService::register_async_method(const std::string& method_name,
             auto result = future_result.get();
             return new TResponse(std::move(result));
         });
+    };
+}
+
+template<typename TRequest>
+void BaseService::register_stream_method(const std::string& method_name,
+                                        std::function<std::shared_ptr<StreamResponseReader>(const TRequest&)> method) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+
+    stream_methods_[method_name] = [method](void* request) -> std::shared_ptr<StreamResponseReader> {
+        auto typed_request = static_cast<const TRequest*>(request);
+        return method(*typed_request);
     };
 }
 

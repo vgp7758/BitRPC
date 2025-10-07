@@ -5,7 +5,7 @@
 #include "../include/testservice_client.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 TestServiceClient::TestServiceClient(std::shared_ptr<IRpcClient> client)
     : BaseClient(client) {}
@@ -20,6 +20,10 @@ std::future<GetUserResponse> TestServiceClient::GetUserAsync(const GetUserReques
 
 std::future<EchoResponse> TestServiceClient::EchoAsync(const EchoRequest& request) {
     return call_async<EchoRequest, EchoResponse>("TestService.Echo", request);
+}
+
+std::shared_ptr<StreamResponseReader> TestServiceClient::StreamUsersStreamAsync(const GetUserRequest& request) {
+    return stream_async<GetUserRequest>("TestService.StreamUsers", request);
 }
 
 std::shared_ptr<TestServiceClient> TestServiceClient::create_tcp_client(const std::string& host, int port) {

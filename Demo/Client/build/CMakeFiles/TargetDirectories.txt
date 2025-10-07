@@ -1,3 +1,0 @@
-D:/Projects/BitRPC/BitRPC/Demo/Client/build/CMakeFiles/test_client.dir
-D:/Projects/BitRPC/BitRPC/Demo/Client/build/CMakeFiles/ALL_BUILD.dir
-D:/Projects/BitRPC/BitRPC/Demo/Client/build/CMakeFiles/ZERO_CHECK.dir

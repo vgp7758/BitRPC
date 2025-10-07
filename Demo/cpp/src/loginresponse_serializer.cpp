@@ -5,7 +5,7 @@
 #include "../include/loginresponse_serializer.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 int LoginResponseSerializer::hash_code() const { return 100275685; }
 

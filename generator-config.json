@@ -1,27 +1,26 @@
 {
   "protocolFile": "Demo/test_protocol.pdl",
-  "outputDirectory": "Generated",
   "languages": [
     {
       "name": "csharp",
       "enabled": true,
       "namespace": "Example.Protocol",
       "runtimePath": "Src/CSharp",
-      "outputDirectory": "Generated/csharp"
+      "outputDirectory": "Demo/csharp"
     },
     {
       "name": "python",
       "enabled": true,
       "namespace": "example.protocol",
       "runtimePath": "Src/Python",
-      "outputDirectory": "Generated/python"
+      "outputDirectory": "Demo/python"
     },
     {
       "name": "cpp",
       "enabled": true,
       "namespace": "example.protocol",
       "runtimePath": "Src/C++Core",
-      "outputDirectory": "Generated/cpp",
+      "outputDirectory": "Demo/cpp",
       "specificOptions": {
         "Cpp": {
           "RuntimeIncludeDir": "runtime",

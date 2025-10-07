@@ -253,17 +253,28 @@ void TcpRpcServer::handle_client(void* client_socket) {
             }
 
             try {
-                // Deserialize request
-                StreamReader reader(request_data);
-                void* response = service->call_method(method, &request_data[0]);
+                // Create a buffer that contains the request length + data
+                std::vector<uint8_t> request_buffer(sizeof(uint32_t) + request_data.size());
+                *reinterpret_cast<uint32_t*>(request_buffer.data()) = static_cast<uint32_t>(request_data.size());
+                std::copy(request_data.begin(), request_data.end(), request_buffer.data() + sizeof(uint32_t));
 
-                // Serialize response (simplified - should use proper serialization)
+                // Call the service method with the prepared buffer
+                void* response = service->call_method(method, request_buffer.data());
+
+                // Send response
                 if (response) {
-                    // For now, just send a success indicator
-                    uint32_t response_length = 4;
-                    uint32_t success = 1;
+                    auto response_vector = static_cast<std::vector<uint8_t>*>(response);
+                    uint32_t response_length = static_cast<uint32_t>(response_vector->size());
+
+                    // Send length
                     send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
-                    send(sock, reinterpret_cast<const char*>(&success), sizeof(success), 0);
+
+                    // Send data if any
+                    if (response_length > 0) {
+                        send(sock, reinterpret_cast<const char*>(response_vector->data()), response_length, 0);
+                    }
+
+                    delete response_vector;
                 } else {
                     uint32_t response_length = 0;
                     send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);

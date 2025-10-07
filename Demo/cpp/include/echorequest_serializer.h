@@ -8,7 +8,7 @@
 #include "./models.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 class EchoRequestSerializer : public TypeHandler {
 public:

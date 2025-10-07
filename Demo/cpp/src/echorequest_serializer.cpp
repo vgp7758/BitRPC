@@ -5,7 +5,7 @@
 #include "../include/echorequest_serializer.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 int EchoRequestSerializer::hash_code() const { return 1660195677; }
 
