@@ -251,9 +251,13 @@ namespace BitRPC.Protocol.Generator
                     int bitPos = fi.Index % 32;
                     var field = fi.Field;
                     if (field.IsRepeated)
+                    {
                         sb.AppendLine("    if (!obj_ref." + field.Name + ".empty()) mask" + grp.gi + " |= (1u << " + bitPos + ");");
-                    if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
+                    }
+                    else if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
+                    {
                         sb.AppendLine("    if (!is_default_" + field.CustomType.ToLower() + "(&obj_ref." + field.Name + ")) mask" + grp.gi + " |= (1u << " + bitPos + ");");
+                    }
                     else
                     {
                         var defVal = GetCppDefaultValueForType(field.Type);
@@ -596,7 +600,36 @@ namespace BitRPC.Protocol.Generator
                 }
                 else
                 {
-                    sb.AppendLine($"    register_async_method<{requestType}, {responseType}>(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
+                    // Register method that handles raw bytes and properly deserializes
+                    sb.AppendLine($"    methods_[\"{method.Name}\"] = [this](void* raw_request) -> void* {{");
+                    sb.AppendLine($"        // Deserialize request from raw bytes");
+                    sb.AppendLine($"        std::vector<uint8_t> request_data;");
+                    sb.AppendLine($"        uint8_t* byte_ptr = static_cast<uint8_t*>(raw_request);");
+                    sb.AppendLine($"        uint32_t* length_ptr = static_cast<uint32_t*>(raw_request);");
+                    sb.AppendLine($"        uint32_t request_length = *length_ptr;");
+                    sb.AppendLine($"        request_data.assign(byte_ptr + 4, byte_ptr + 4 + request_length);");
+                    sb.AppendLine($"        ");
+                    sb.AppendLine($"        // Parse the request data into the expected type");
+                    sb.AppendLine($"        StreamReader reader(request_data);");
+                    sb.AppendLine($"        auto request_obj = {requestType}Serializer::deserialize(reader);");
+                    sb.AppendLine($"        ");
+                    sb.AppendLine($"        // Call the async implementation and wait for result");
+                    sb.AppendLine($"        auto future_result = {method.Name}Async_impl(*request_obj);");
+                    sb.AppendLine($"        auto response = future_result.get();");
+                    sb.AppendLine($"        ");
+                    sb.AppendLine($"        // Serialize response to bytes");
+                    sb.AppendLine($"        std::vector<uint8_t> response_data;");
+                    sb.AppendLine($"        StreamWriter writer(response_data);");
+                    sb.AppendLine($"        {responseType}Serializer::serialize(response, writer);");
+                    sb.AppendLine($"        ");
+                    sb.AppendLine($"        // Return response data");
+                    sb.AppendLine($"        auto response_buffer = new std::vector<uint8_t>(response_data);");
+                    sb.AppendLine($"        return static_cast<void*>(response_buffer);");
+                    sb.AppendLine("    });");
+                    sb.AppendLine();
+
+                    // Also register async method (for future use)
+                    sb.AppendLine($"    register_async_method<{requestType}, {responseType}>(\"{method.Name}_async\", [this](const {method.RequestType}& request) {{");
                     sb.AppendLine($"        return {method.Name}Async_impl(request);");
                     sb.AppendLine("    });");
                 }
@@ -731,7 +764,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("add_library(${PROJECT_NAME} STATIC ${SOURCES})");
             sb.AppendLine();
             sb.AppendLine("target_link_libraries(${PROJECT_NAME}");
-            sb.AppendLine("    bitrpc_runtime");
+            sb.AppendLine("    bitrpc");
             sb.AppendLine(")");
 
             File.WriteAllText(filePath, sb.ToString());
