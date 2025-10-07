@@ -578,7 +578,15 @@ namespace BitRPC.Protocol.Generator
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader($"{service.Name}_service_base.cpp", options));
             sb.AppendLine($"#include \"../include/{service.Name.ToLower()}_service_base.h\"");
+
+            // Add includes for all message serializers
+            foreach (var method in service.Methods)
+            {
+                sb.AppendLine($"#include \"../include/{method.RequestType.ToLower()}_serializer.h\"");
+                sb.AppendLine($"#include \"../include/{method.ResponseType.ToLower()}_serializer.h\"");
+            }
             sb.AppendLine();
+
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
@@ -600,36 +608,8 @@ namespace BitRPC.Protocol.Generator
                 }
                 else
                 {
-                    // Register method that handles raw bytes and properly deserializes
-                    sb.AppendLine($"    methods_[\"{method.Name}\"] = [this](void* raw_request) -> void* {{");
-                    sb.AppendLine($"        // Deserialize request from raw bytes");
-                    sb.AppendLine($"        std::vector<uint8_t> request_data;");
-                    sb.AppendLine($"        uint8_t* byte_ptr = static_cast<uint8_t*>(raw_request);");
-                    sb.AppendLine($"        uint32_t* length_ptr = static_cast<uint32_t*>(raw_request);");
-                    sb.AppendLine($"        uint32_t request_length = *length_ptr;");
-                    sb.AppendLine($"        request_data.assign(byte_ptr + 4, byte_ptr + 4 + request_length);");
-                    sb.AppendLine($"        ");
-                    sb.AppendLine($"        // Parse the request data into the expected type");
-                    sb.AppendLine($"        StreamReader reader(request_data);");
-                    sb.AppendLine($"        auto request_obj = {requestType}Serializer::deserialize(reader);");
-                    sb.AppendLine($"        ");
-                    sb.AppendLine($"        // Call the async implementation and wait for result");
-                    sb.AppendLine($"        auto future_result = {method.Name}Async_impl(*request_obj);");
-                    sb.AppendLine($"        auto response = future_result.get();");
-                    sb.AppendLine($"        ");
-                    sb.AppendLine($"        // Serialize response to bytes");
-                    sb.AppendLine($"        std::vector<uint8_t> response_data;");
-                    sb.AppendLine($"        StreamWriter writer(response_data);");
-                    sb.AppendLine($"        {responseType}Serializer::serialize(response, writer);");
-                    sb.AppendLine($"        ");
-                    sb.AppendLine($"        // Return response data");
-                    sb.AppendLine($"        auto response_buffer = new std::vector<uint8_t>(response_data);");
-                    sb.AppendLine($"        return static_cast<void*>(response_buffer);");
-                    sb.AppendLine("    });");
-                    sb.AppendLine();
-
-                    // Also register async method (for future use)
-                    sb.AppendLine($"    register_async_method<{requestType}, {responseType}>(\"{method.Name}_async\", [this](const {method.RequestType}& request) {{");
+                    // Register async method that properly handles typed requests and responses
+                    sb.AppendLine($"    register_async_method<{requestType}, {responseType}>(\"{method.Name}\", [this](const {method.RequestType}& request) {{");
                     sb.AppendLine($"        return {method.Name}Async_impl(request);");
                     sb.AppendLine("    });");
                 }

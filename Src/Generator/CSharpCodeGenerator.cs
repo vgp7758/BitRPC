@@ -141,7 +141,7 @@ namespace BitRPC.Protocol.Generator
 
             if (!string.IsNullOrEmpty(options.Namespace))
             {
-                sb.AppendLine($"using {options.Namespace}.Serialization");
+                sb.AppendLine($"using {options.Namespace}.Serialization;");
                 sb.AppendLine();
                 sb.AppendLine($"namespace {options.Namespace}.Serialization");
                 sb.AppendLine("{");
