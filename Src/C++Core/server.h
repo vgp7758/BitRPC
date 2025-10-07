@@ -63,7 +63,7 @@ protected:
     void register_stream_method(const std::string& method_name,
                                std::function<std::shared_ptr<StreamResponseReader>(const TRequest&)> method);
 
-private:
+protected:
     std::string name_;
     std::unordered_map<std::string, std::function<void*(void*)>> methods_;
     std::unordered_map<std::string, std::function<std::future<void*>(void*)>> async_methods_;
