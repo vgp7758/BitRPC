@@ -141,7 +141,6 @@ namespace BitRPC.Protocol.Generator
 
             if (!string.IsNullOrEmpty(options.Namespace))
             {
-                sb.AppendLine($"using {options.Namespace};");
                 sb.AppendLine($"using {options.Namespace}.Serialization;");
                 sb.AppendLine();
                 sb.AppendLine($"namespace {options.Namespace}.Serialization");
@@ -222,7 +221,7 @@ namespace BitRPC.Protocol.Generator
 
             // add constructor to initialize static instance
             sb.AppendLine($"        public {message.Name}Handler()" + "{ _instance = this; }");
-            sb.AppendLine($"        public static {message.Name}Handler _instance{{ get; private set; }}");
+            sb.AppendLine($"        public static readonly {message.Name}Handler _instance;");
             sb.AppendLine("    }");
 
             if (!string.IsNullOrEmpty(options.Namespace))
@@ -537,7 +536,7 @@ namespace BitRPC.Protocol.Generator
         {
             if (field.IsRepeated)
             {
-                return $"writer.WriteList(message.{field.Name}, writer.Write{GetTypeName(field)});";
+                return $"writer.WriteList(writer.Write{GetTypeName(field)});";
             }
 
             return $"writer.Write{GetTypeName(field)}(message.{field.Name});";

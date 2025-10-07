@@ -5,7 +5,7 @@
 #include "../include/models.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 UserInfo::UserInfo() {
     user_id = 0;

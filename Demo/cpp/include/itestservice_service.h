@@ -8,7 +8,7 @@
 #include <future>
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 class ITestServiceService {
 public:
@@ -16,6 +16,7 @@ public:
     virtual std::future<LoginResponse> LoginAsync(const LoginRequest& request) = 0;
     virtual std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request) = 0;
     virtual std::future<EchoResponse> EchoAsync(const EchoRequest& request) = 0;
+    virtual std::shared_ptr<StreamResponseReader> StreamUsersStreamAsync(const GetUserRequest& request) = 0;
 };
 
 }} // namespace bitrpc

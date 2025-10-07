@@ -2,12 +2,12 @@
 // File: protocol_factory.cpp
 // Language: Cpp
 
-#include "./include/protocol_factory.h"
-#include "./include/serializer_registry.h"
-#include "./runtime/serialization.h"
+#include "../include/protocol_factory.h"
+#include "../include/serializer_registry.h"
+#include "../runtime/serialization.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 void ProtocolFactory::initialize() {
     auto& serializer = BufferSerializer::instance();

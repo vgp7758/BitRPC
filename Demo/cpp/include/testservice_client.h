@@ -9,7 +9,7 @@
 #include <future>
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 class TestServiceClient : public BaseClient {
 public:
@@ -18,6 +18,7 @@ public:
     std::future<LoginResponse> LoginAsync(const LoginRequest& request);
     std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request);
     std::future<EchoResponse> EchoAsync(const EchoRequest& request);
+    std::shared_ptr<StreamResponseReader> StreamUsersStreamAsync(const GetUserRequest& request);
 
     static std::shared_ptr<TestServiceClient> create_tcp_client(const std::string& host, int port);
 };

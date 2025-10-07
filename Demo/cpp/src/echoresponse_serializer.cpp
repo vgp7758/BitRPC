@@ -5,7 +5,7 @@
 #include "../include/echoresponse_serializer.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 int EchoResponseSerializer::hash_code() const { return -1786407677; }
 
@@ -26,7 +26,7 @@ void EchoResponseSerializer::write(const void* obj, StreamWriter& writer) const 
     uint32_t mask0 = 0;
     if (!(obj_ref.message == "")) mask0 |= (1u << 2);
     if (!(obj_ref.timestamp == 0)) mask0 |= (1u << 3);
-    if (!is_default_userinfo(&obj_ref.users)) mask0 |= (1u << 4);
+    if (!obj_ref.users.empty()) mask0 |= (1u << 4);
     if (!(obj_ref.server_time == "")) mask0 |= (1u << 5);
     writer.write_uint32(mask0);
     if (mask0 & (1u << 2)) { StringHandler::instance().write(&obj_ref.message, writer); }

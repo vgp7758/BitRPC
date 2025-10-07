@@ -5,7 +5,7 @@
 #include "../include/getuserresponse_serializer.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 int GetUserResponseSerializer::hash_code() const { return -1624387005; }
 

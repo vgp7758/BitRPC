@@ -4,12 +4,26 @@
 #include <ctime>
 #include <cstring>
 #include <algorithm>
+#include <mutex>
 
 namespace bitrpc {
 
 BufferSerializer& BufferSerializer::instance() {
-    static BufferSerializer instance;
-    return instance;
+    static BufferSerializer* instance;
+	static std::mutex init_mutex;
+
+    if (instance == nullptr) {
+		std::lock_guard<std::mutex> lock(init_mutex);
+        if (instance == nullptr) {
+            instance = new BufferSerializer();
+            instance->init_handlers();
+		}
+    }
+    //static std::once_flag init_flag;
+    //std::call_once(init_flag, [&instance]() {
+    //    instance.init_handlers();
+    //});
+    return *instance;
 }
 
 TypeHandler* BufferSerializer::get_handler(size_t type_hash) const {
@@ -409,6 +423,58 @@ std::vector<uint8_t> StreamReader::read_bytes() {
 void* StreamReader::read_object() {
     // For now, return nullptr - in a full implementation this would read type info
     return nullptr;
+}
+
+// BitMask implementation
+BitMask::BitMask() = default;
+
+BitMask::BitMask(int size) {
+    masks_.resize((size + 31) / 32, 0);
+}
+
+void BitMask::set_bit(int index, bool value) {
+    int mask_index = index / 32;
+    int bit_index = index % 32;
+
+    if (mask_index >= static_cast<int>(masks_.size())) {
+        masks_.resize(mask_index + 1, 0);
+    }
+
+    if (value) {
+        masks_[mask_index] |= (1 << bit_index);
+    } else {
+        masks_[mask_index] &= ~(1 << bit_index);
+    }
+}
+
+bool BitMask::get_bit(int index) const {
+    int mask_index = index / 32;
+    int bit_index = index % 32;
+
+    if (mask_index >= static_cast<int>(masks_.size())) {
+        return false;
+    }
+
+    return (masks_[mask_index] & (1 << bit_index)) != 0;
+}
+
+void BitMask::clear() {
+    std::fill(masks_.begin(), masks_.end(), 0);
+}
+
+void BitMask::write(StreamWriter& writer) const {
+    writer.write_int32(static_cast<int32_t>(masks_.size()));
+    for (uint32_t mask : masks_) {
+        writer.write_uint32(mask);
+    }
+}
+
+void BitMask::read(StreamReader& reader) {
+    int32_t size = reader.read_int32();
+    masks_.resize(size);
+    for (int32_t i = 0; i < size; ++i) {
+        masks_[i] = reader.read_uint32();
+    }
 }
 
 } // namespace bitrpc

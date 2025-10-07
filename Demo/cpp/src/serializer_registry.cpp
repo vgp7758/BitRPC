@@ -5,7 +5,7 @@
 #include "../include/serializer_registry.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 void register_serializers(BufferSerializer& serializer) {
     serializer.register_handler<UserInfo>(std::shared_ptr<TypeHandler>(&UserInfoSerializer::instance(), [](TypeHandler*){}));

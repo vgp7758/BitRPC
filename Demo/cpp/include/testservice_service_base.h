@@ -9,7 +9,7 @@
 #include "./itestservice_service.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 class TestServiceServiceBase : public BaseService, public ITestServiceService {
 public:
@@ -17,12 +17,14 @@ public:
     std::future<LoginResponse> LoginAsync(const LoginRequest& request) override;
     std::future<GetUserResponse> GetUserAsync(const GetUserRequest& request) override;
     std::future<EchoResponse> EchoAsync(const EchoRequest& request) override;
+    std::shared_ptr<StreamResponseReader> StreamUsersStreamAsync(const GetUserRequest& request) override;
 
 protected:
     void register_methods();
     virtual std::future<LoginResponse> LoginAsync_impl(const LoginRequest& request) = 0;
     virtual std::future<GetUserResponse> GetUserAsync_impl(const GetUserRequest& request) = 0;
     virtual std::future<EchoResponse> EchoAsync_impl(const EchoRequest& request) = 0;
+    virtual std::shared_ptr<StreamResponseReader> StreamUsersStreamAsync_impl(const GetUserRequest& request) = 0;
 };
 
 }} // namespace bitrpc

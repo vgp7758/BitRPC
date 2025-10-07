@@ -5,7 +5,7 @@
 #include "../include/userinfo_serializer.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 int UserInfoSerializer::hash_code() const { return 1876671786; }
 

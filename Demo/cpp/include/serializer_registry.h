@@ -18,7 +18,7 @@ class BufferSerializer;
 }
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 void register_serializers(BufferSerializer& serializer);
 

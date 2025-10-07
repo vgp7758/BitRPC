@@ -3,9 +3,17 @@
 // Language: Cpp
 
 #include "../include/testservice_service_base.h"
+#include "../include/loginrequest_serializer.h"
+#include "../include/loginresponse_serializer.h"
+#include "../include/getuserrequest_serializer.h"
+#include "../include/getuserresponse_serializer.h"
+#include "../include/echorequest_serializer.h"
+#include "../include/echoresponse_serializer.h"
+#include "../include/getuserrequest_serializer.h"
+#include "../include/userinfo_serializer.h"
 
 namespace bitrpc {
-namespace test::protocol {
+namespace example::protocol {
 
 TestServiceServiceBase::TestServiceServiceBase() : BaseService("TestService") {
     register_methods();
@@ -21,6 +29,9 @@ void TestServiceServiceBase::register_methods() {
     register_async_method<EchoRequest, EchoResponse>("Echo", [this](const EchoRequest& request) {
         return EchoAsync_impl(request);
     });
+    register_stream_method<GetUserRequest>("StreamUsers", [this](const GetUserRequest& request) {
+        return StreamUsersStreamAsync_impl(request);
+    });
 }
 
 std::future<LoginResponse> TestServiceServiceBase::LoginAsync(const LoginRequest& request) {
@@ -33,6 +44,10 @@ std::future<GetUserResponse> TestServiceServiceBase::GetUserAsync(const GetUserR
 
 std::future<EchoResponse> TestServiceServiceBase::EchoAsync(const EchoRequest& request) {
     return EchoAsync_impl(request);
+}
+
+std::shared_ptr<StreamResponseReader> TestServiceServiceBase::StreamUsersStreamAsync(const GetUserRequest& request) {
+    return StreamUsersStreamAsync_impl(request);
 }
 
 
