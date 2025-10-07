@@ -689,9 +689,9 @@ namespace BitRPC.Protocol.Generator
         {
             var sb = new StringBuilder();
             sb.AppendLine(GenerateFileHeader("protocol_factory.cpp", options));
-            sb.AppendLine($"#include \"./include/protocol_factory.h\"");
-            sb.AppendLine($"#include \"./include/serializer_registry.h\"");
-            sb.AppendLine($"#include \"./runtime/serialization.h\"");
+            sb.AppendLine($"#include \"../include/protocol_factory.h\"");
+            sb.AppendLine($"#include \"../include/serializer_registry.h\"");
+            sb.AppendLine($"#include \"../runtime/serialization.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
