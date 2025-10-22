@@ -69,9 +69,7 @@ namespace bitrpc {
     }
 
     void* BufferSerializer::deserialize_impl(StreamReader& reader) {
-        // For now, implement a simple version that just returns nullptr
-        // In a full implementation, this would need to read type information and deserialize accordingly
-        return nullptr;
+		return reader.read_object();
     }
 
     // Int32Handler implementation
@@ -335,6 +333,7 @@ namespace bitrpc {
     }
 
     void StreamWriter::write_object(const void* obj, size_t type_hash) {
+		write_int32(static_cast<int32_t>(type_hash));
         BufferSerializer::instance().serialize_impl(obj, *this, type_hash);
     }
 
@@ -426,8 +425,18 @@ namespace bitrpc {
     }
 
     void* StreamReader::read_object() {
-        // For now, return nullptr - in a full implementation this would read type info
-        return nullptr;
+        if (available_data() < sizeof(uint32_t)) {
+            throw std::runtime_error("Not enough data to read type hash");
+        }
+
+        uint32_t type_hash = read_uint32();
+
+        auto* handler = BufferSerializer::instance().get_handler(type_hash);
+        if (!handler) {
+            throw std::runtime_error("No TypeHandler registered for type hash: " + std::to_string(type_hash));
+        }
+
+        return handler->read(*this);
     }
 
     // BitMask implementation
