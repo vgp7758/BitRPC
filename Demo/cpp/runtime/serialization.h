@@ -9,8 +9,6 @@
 #include <chrono>
 #include <typeinfo>
 #include <mutex>
-#include <optional>
-#include <mutex>
 
 namespace bitrpc {
 
@@ -19,6 +17,53 @@ class StreamReader;
 class StreamWriter;
 template<typename T>
 class StructTypeHandler;
+
+// nullopt equivalent (must be declared before optional)
+struct nullopt_t {
+    explicit nullopt_t() {}
+};
+extern const nullopt_t nullopt;
+
+// C++11 compatible optional replacement
+template<typename T>
+class optional {
+public:
+    optional() : has_value_(false) {}
+    optional(const T& value) : has_value_(true), value_(value) {}
+    optional(const nullopt_t&) : has_value_(false) {}
+
+    bool has_value() const { return has_value_; }
+    const T& value() const { return value_; }
+    T& value() { return value_; }
+
+private:
+    bool has_value_;
+    T value_;
+};
+
+template<typename T>
+optional<T> make_optional(const T& value) {
+    return optional<T>(value);
+}
+
+// For string optional specifically
+typedef optional<std::string> optional_string;
+
+// Custom deleter for shared_ptr to avoid lambda (C++11 compatibility)
+template<typename T>
+class SharedPtrDeleter {
+public:
+    void operator()(T* ptr) const {
+        // Do nothing - we don't want to delete singleton instances
+        (void)ptr; // Suppress unused parameter warning
+    }
+};
+
+// C++11 compatible make_unique implementation (default constructor version)
+template<typename T>
+std::unique_ptr<T> make_unique() {
+    return std::unique_ptr<T>(new T());
+}
 
 // Vector3 struct
 struct Vector3 {
@@ -94,7 +139,7 @@ public:
     // Enhanced write methods
     void write_datetime(const std::chrono::system_clock::time_point& time);
     void write_vector3(const Vector3& vec);
-    void write_optional(const std::optional<std::string>& value);
+    void write_optional(const optional_string& value);
 
     template<typename T>
     void write_vector(const std::vector<T>& vec, std::function<void(const T&)> write_func);
@@ -135,7 +180,7 @@ public:
     // Enhanced read methods
     std::chrono::system_clock::time_point read_datetime();
     Vector3 read_vector3();
-    std::optional<std::string> read_optional_string();
+    optional_string read_optional_string();
 
     template<typename T>
     std::vector<T> read_vector(std::function<T()> read_func);
@@ -249,7 +294,7 @@ public:
     // Helper method for struct registration (aligns with C# pattern)
     template<typename T>
     void register_struct_handler() {
-        register_handler<T>(std::shared_ptr<TypeHandler>(&StructTypeHandler<T>::instance(), [](TypeHandler*){}));
+        register_handler<T>(std::shared_ptr<TypeHandler>(&StructTypeHandler<T>::instance(), SharedPtrDeleter<TypeHandler>()));
     }
 
     // C#-style serialization methods for convenience

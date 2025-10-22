@@ -30,7 +30,7 @@ void GetUserResponseSerializer::write(const void* obj, StreamWriter& writer) con
 }
 
 void* GetUserResponseSerializer::read(StreamReader& reader) const {
-    auto obj_ptr = std::make_unique<GetUserResponse>();
+    auto obj_ptr = make_unique<GetUserResponse>();
     uint32_t mask0 = reader.read_uint32();
     if (mask0 & (1u << 0)) { obj_ptr->user = *UserInfoSerializer::deserialize(reader); }
     if (mask0 & (1u << 1)) { obj_ptr->found = *static_cast<bool*>(BoolHandler::instance().read(reader)); }

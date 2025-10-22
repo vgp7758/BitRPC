@@ -30,7 +30,7 @@ void EchoRequestSerializer::write(const void* obj, StreamWriter& writer) const {
 }
 
 void* EchoRequestSerializer::read(StreamReader& reader) const {
-    auto obj_ptr = std::make_unique<EchoRequest>();
+    auto obj_ptr = make_unique<EchoRequest>();
     uint32_t mask0 = reader.read_uint32();
     if (mask0 & (1u << 0)) { obj_ptr->message = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
     if (mask0 & (1u << 1)) { obj_ptr->timestamp = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }

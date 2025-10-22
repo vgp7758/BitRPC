@@ -79,7 +79,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             sb.AppendLine("#include <vector>");
             sb.AppendLine("#include <string>");
-            sb.AppendLine("#include <optional>");
+            //sb.AppendLine("#include <optional>");
             sb.AppendLine("#include <chrono>");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
@@ -274,7 +274,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine("void* " + message.Name + "Serializer::read(StreamReader& reader) const {");
-            sb.AppendLine("    auto obj_ptr = std::make_unique<" + message.Name + ">();");
+            //sb.AppendLine("    auto obj_ptr = std::make_unique<" + message.Name + ">();");
+            sb.AppendLine("    std::unique_ptr<" + message.Name + "> obj_ptr(new "+ message.Name + "());");
             for (int g = 0; g < groupCount; g++) sb.AppendLine("    uint32_t mask" + g + " = reader.read_uint32();");
             foreach (var field in message.Fields)
             {
@@ -347,7 +348,8 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var message in definition.Messages)
             {
-                sb.AppendLine($"    serializer.register_handler<{message.Name}>(std::shared_ptr<TypeHandler>(&{message.Name}Serializer::instance(), [](TypeHandler*){{}}));");
+                //sb.AppendLine($"    serializer.register_handler<{message.Name}>(std::shared_ptr<TypeHandler>(&{message.Name}Serializer::instance(), [](TypeHandler*){{}}));");
+                sb.AppendLine($"    serializer.register_handler<{message.Name}>(std::shared_ptr<TypeHandler>(&{message.Name}Serializer::instance(), SharedPtrDeleter<TypeHandler>()));");
             }
 
             sb.AppendLine("}");

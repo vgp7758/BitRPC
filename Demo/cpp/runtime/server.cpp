@@ -244,7 +244,9 @@ void TcpRpcServer::handle_client(void* client_socket) {
             if (bytes_received != request_length) break;
 
             // Parse method name and call service
-            auto [service_name, method] = parse_method_name(method_name);
+            auto method_pair = parse_method_name(method_name);
+            auto& service_name = method_pair.first;
+            auto& method = method_pair.second;
             auto service = service_manager_->get_service(service_name);
 
             if (!service) {

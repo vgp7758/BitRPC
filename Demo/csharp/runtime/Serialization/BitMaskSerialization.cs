@@ -212,6 +212,18 @@ namespace BitRPC.Serialization
             }
         }
 
+        public void WriteVector3(Vector3 vec)
+        {
+            WriteFloat(vec.x);
+            WriteFloat(vec.y);
+            WriteFloat(vec.z);
+        }
+
+        public void WriteDateTime(DateTime dt)
+        {
+            WriteInt64(dt.ToBinary());
+        }
+
         public void WriteObject(object obj)
         {
             if (obj == null)
@@ -320,6 +332,21 @@ namespace BitRPC.Serialization
             return list;
         }
 
+        public Vector3 ReadVector3()
+        {
+            var vec = new Vector3();
+            vec.x = ReadFloat();
+            vec.y = ReadFloat();
+            vec.z = ReadFloat();
+            return vec;
+        }
+
+        public DateTime ReadDateTime()
+        {
+            var binary = ReadInt64();
+            return DateTime.FromBinary(binary);
+        }
+
         public object ReadObject()
         {
             var hashCode = ReadInt32();
@@ -386,6 +413,7 @@ namespace BitRPC.Serialization
             RegisterHandler<bool>(new BoolHandler());
             RegisterHandler<string>(new StringHandler());
             RegisterHandler<byte[]>(new BytesHandler());
+            RegisterHandler<DateTime>(new DatTimeHandler());
         }
 
         public byte[] Serialize<T>(T obj)
@@ -411,6 +439,21 @@ namespace BitRPC.Serialization
         }
     }
 
+    public partial class Vector3
+    {
+        public float x;
+        public float y;
+        public float z;
+
+        public Vector3() { }
+        public Vector3(float x, float y, float z)
+        {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+    }
+
     public static partial class Types
     {
         public static bool IsDefault(int value) => value == 0;
@@ -423,6 +466,7 @@ namespace BitRPC.Serialization
         public static bool IsDefault(DateTime value) => value == default;
         public static bool IsDefault<T>(List<T> value) => value == null || value.Count == 0;
         public static bool IsDefault(object value) => value == null;
+        public static bool IsDefault(Vector3 value) => value == null || (IsDefault(value.x) && IsDefault(value.y) && IsDefault(value.z));
     }
 
     #region Primitive Type Handlers
@@ -601,6 +645,20 @@ namespace BitRPC.Serialization
         }
     }
 
+    public class DatTimeHandler : ITypeHandler
+    {
+        public int HashCode => 201;
+        public void Write(object obj, StreamWriter writer)
+        {
+            writer.WriteInt64(((DateTime)obj).ToBinary());
+        }
+
+        public object Read(StreamReader reader)
+        {
+            return DateTime.FromBinary(reader.ReadInt64());
+        }
+    }
+
     public class AutoHandler : ITypeHandler
     {
         public int HashCode => 150;
@@ -623,6 +681,26 @@ namespace BitRPC.Serialization
         public static void WriteStatic(object obj, StreamWriter writer)
         {
             writer.WriteObject(obj);
+        }
+    }
+
+    public class Vector3Handler : ITypeHandler
+    {
+        public int HashCode => 301;
+        public void Write(object obj, StreamWriter writer)
+        {
+            var vec = (Vector3)obj;
+            writer.WriteFloat(vec.x);
+            writer.WriteFloat(vec.y);
+            writer.WriteFloat(vec.z);
+        }
+        public object Read(StreamReader reader)
+        {
+            var vec = new Vector3();
+            vec.x = reader.ReadFloat();
+            vec.y = reader.ReadFloat();
+            vec.z = reader.ReadFloat();
+            return vec;
         }
     }
 

@@ -8,12 +8,12 @@ namespace bitrpc {
 namespace example::protocol {
 
 void register_serializers(BufferSerializer& serializer) {
-    serializer.register_handler<UserInfo>(std::shared_ptr<TypeHandler>(&UserInfoSerializer::instance(), [](TypeHandler*){}));
-    serializer.register_handler<LoginRequest>(std::shared_ptr<TypeHandler>(&LoginRequestSerializer::instance(), [](TypeHandler*){}));
-    serializer.register_handler<LoginResponse>(std::shared_ptr<TypeHandler>(&LoginResponseSerializer::instance(), [](TypeHandler*){}));
-    serializer.register_handler<GetUserRequest>(std::shared_ptr<TypeHandler>(&GetUserRequestSerializer::instance(), [](TypeHandler*){}));
-    serializer.register_handler<GetUserResponse>(std::shared_ptr<TypeHandler>(&GetUserResponseSerializer::instance(), [](TypeHandler*){}));
-    serializer.register_handler<EchoRequest>(std::shared_ptr<TypeHandler>(&EchoRequestSerializer::instance(), [](TypeHandler*){}));
-    serializer.register_handler<EchoResponse>(std::shared_ptr<TypeHandler>(&EchoResponseSerializer::instance(), [](TypeHandler*){}));
+    serializer.register_handler<UserInfo>(std::shared_ptr<TypeHandler>(&UserInfoSerializer::instance(), SharedPtrDeleter<TypeHandler>()));
+    serializer.register_handler<LoginRequest>(std::shared_ptr<TypeHandler>(&LoginRequestSerializer::instance(), SharedPtrDeleter<TypeHandler>()));
+    serializer.register_handler<LoginResponse>(std::shared_ptr<TypeHandler>(&LoginResponseSerializer::instance(), SharedPtrDeleter<TypeHandler>()));
+    serializer.register_handler<GetUserRequest>(std::shared_ptr<TypeHandler>(&GetUserRequestSerializer::instance(), SharedPtrDeleter<TypeHandler>()));
+    serializer.register_handler<GetUserResponse>(std::shared_ptr<TypeHandler>(&GetUserResponseSerializer::instance(), SharedPtrDeleter<TypeHandler>()));
+    serializer.register_handler<EchoRequest>(std::shared_ptr<TypeHandler>(&EchoRequestSerializer::instance(), SharedPtrDeleter<TypeHandler>()));
+    serializer.register_handler<EchoResponse>(std::shared_ptr<TypeHandler>(&EchoResponseSerializer::instance(), SharedPtrDeleter<TypeHandler>()));
 }
 }} // namespace bitrpc

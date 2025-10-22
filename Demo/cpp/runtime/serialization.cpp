@@ -8,6 +8,9 @@
 
 namespace bitrpc {
 
+// Define nullopt constant
+const nullopt_t nullopt;
+
 BufferSerializer& BufferSerializer::instance() {
     static BufferSerializer* instance;
 	static std::mutex init_mutex;
@@ -46,15 +49,15 @@ void BufferSerializer::register_handler_impl(size_t type_hash, std::shared_ptr<T
 
 void BufferSerializer::init_handlers() {
     // Register built-in type handlers using singleton instances
-    register_handler_impl(typeid(int32_t).hash_code(), std::shared_ptr<TypeHandler>(&Int32Handler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(int64_t).hash_code(), std::shared_ptr<TypeHandler>(&Int64Handler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(float).hash_code(), std::shared_ptr<TypeHandler>(&FloatHandler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(double).hash_code(), std::shared_ptr<TypeHandler>(&DoubleHandler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(bool).hash_code(), std::shared_ptr<TypeHandler>(&BoolHandler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(std::string).hash_code(), std::shared_ptr<TypeHandler>(&StringHandler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(std::vector<uint8_t>).hash_code(), std::shared_ptr<TypeHandler>(&BytesHandler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(std::chrono::system_clock::time_point).hash_code(), std::shared_ptr<TypeHandler>(&DateTimeHandler::instance(), [](TypeHandler*){}));
-    register_handler_impl(typeid(Vector3).hash_code(), std::shared_ptr<TypeHandler>(&Vector3Handler::instance(), [](TypeHandler*){}));
+    register_handler_impl(typeid(int32_t).hash_code(), std::shared_ptr<TypeHandler>(&Int32Handler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(int64_t).hash_code(), std::shared_ptr<TypeHandler>(&Int64Handler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(float).hash_code(), std::shared_ptr<TypeHandler>(&FloatHandler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(double).hash_code(), std::shared_ptr<TypeHandler>(&DoubleHandler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(bool).hash_code(), std::shared_ptr<TypeHandler>(&BoolHandler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(std::string).hash_code(), std::shared_ptr<TypeHandler>(&StringHandler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(std::vector<uint8_t>).hash_code(), std::shared_ptr<TypeHandler>(&BytesHandler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(std::chrono::system_clock::time_point).hash_code(), std::shared_ptr<TypeHandler>(&DateTimeHandler::instance(), SharedPtrDeleter<TypeHandler>()));
+    register_handler_impl(typeid(Vector3).hash_code(), std::shared_ptr<TypeHandler>(&Vector3Handler::instance(), SharedPtrDeleter<TypeHandler>()));
 }
 
 void BufferSerializer::serialize_impl(const void* obj, StreamWriter& writer, size_t type_hash) {
@@ -189,10 +192,10 @@ void StreamWriter::write_vector3(const Vector3& vec) {
     write_float(vec.z);
 }
 
-void StreamWriter::write_optional(const std::optional<std::string>& value) {
+void StreamWriter::write_optional(const optional_string& value) {
     if (value.has_value()) {
         write_int32(1);
-        write_string(*value);
+        write_string(value.value());
     } else {
         write_int32(0);
     }
@@ -212,12 +215,12 @@ Vector3 StreamReader::read_vector3() {
     return vec;
 }
 
-std::optional<std::string> StreamReader::read_optional_string() {
+optional_string StreamReader::read_optional_string() {
     int32_t has_value = read_int32();
     if (has_value) {
-        return read_string();
+        return make_optional(read_string());
     } else {
-        return std::nullopt;
+        return nullopt;
     }
 }
 

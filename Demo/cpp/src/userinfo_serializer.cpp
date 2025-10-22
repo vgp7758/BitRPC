@@ -42,7 +42,7 @@ void UserInfoSerializer::write(const void* obj, StreamWriter& writer) const {
 }
 
 void* UserInfoSerializer::read(StreamReader& reader) const {
-    auto obj_ptr = std::make_unique<UserInfo>();
+    auto obj_ptr = make_unique<UserInfo>();
     uint32_t mask0 = reader.read_uint32();
     if (mask0 & (1u << 0)) { obj_ptr->user_id = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }
     if (mask0 & (1u << 1)) { obj_ptr->username = *static_cast<std::string*>(StringHandler::instance().read(reader)); }
