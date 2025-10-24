@@ -217,30 +217,28 @@ public:
 // Template implementations
 template<typename TRequest, typename TResponse>
 std::future<TResponse> BaseClient::call_async(const std::string& method, const TRequest& request) {
-    // Serialize request
-    auto& serializer = BufferSerializer::instance();
+    // Build request bytes with type hash header to align with C# WriteObject
     StreamWriter writer;
-    serializer.serialize(&request, writer);
+    writer.write_object(&request, typeid(TRequest).hash_code());
     auto request_data = writer.to_array();
 
     // Make async call
     auto future = client_->call_async(method, request_data);
 
-    // Transform future to return TResponse
-    return std::async(std::launch::async, [future = std::move(future), &serializer]() mutable -> TResponse {
+    // Transform future to return TResponse (response is framed as WriteObject)
+    return std::async(std::launch::async, [future = std::move(future)]() mutable -> TResponse {
         auto response_data = future.get();
         StreamReader reader(response_data);
-        auto response_ptr = serializer.deserialize<TResponse>(reader);
+        auto response_ptr = BufferSerializer::instance().deserialize<TResponse>(reader);
         return std::move(*response_ptr);
     });
 }
 
 template<typename TRequest>
 std::shared_ptr<StreamResponseReader> BaseClient::stream_async(const std::string& method, const TRequest& request) {
-    // Serialize request
-    auto& serializer = BufferSerializer::instance();
+    // Build request bytes with type hash header to align with C# WriteObject
     StreamWriter writer;
-    serializer.serialize(&request, writer);
+    writer.write_object(&request, typeid(TRequest).hash_code());
     auto request_data = writer.to_array();
 
     // Start streaming call

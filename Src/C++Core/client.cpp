@@ -103,13 +103,17 @@ std::vector<uint8_t> TcpRpcClient::call(const std::string& method, const std::ve
 
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Create combined payload: method_name + serialized_request (aligned with C#)
+    // Build payload: WriteString(method) + pre-serialized request (starts with handler hash_code)
+    StreamWriter meta_writer;
+    meta_writer.write_string(method);
+    auto method_part = meta_writer.to_array();
+
     std::vector<uint8_t> combined_payload;
-    combined_payload.reserve(method.size() + request.size());
-    combined_payload.insert(combined_payload.end(), method.begin(), method.end());
+    combined_payload.reserve(method_part.size() + request.size());
+    combined_payload.insert(combined_payload.end(), method_part.begin(), method_part.end());
     combined_payload.insert(combined_payload.end(), request.begin(), request.end());
 
-    // Send combined payload length and data (C# compatible format)
+    // Send combined payload length and data
     uint32_t payload_length = static_cast<uint32_t>(combined_payload.size());
     send(sock, reinterpret_cast<const char*>(&payload_length), sizeof(payload_length), 0);
     send(sock, reinterpret_cast<const char*>(combined_payload.data()), static_cast<int>(combined_payload.size()), 0);
@@ -234,14 +238,17 @@ std::shared_ptr<StreamResponseReader> TcpRpcClientAsync::stream_async(const std:
 void TcpRpcClientAsync::send_stream_request(const std::string& method, const std::vector<uint8_t>& request) {
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Create combined payload: method_name + serialized_request (aligned with C#)
-    // No special STREAM prefix - server will detect streaming via method registration
+    // Build payload: WriteString(method) + pre-serialized request (starts with handler hash_code)
+    StreamWriter meta_writer;
+    meta_writer.write_string(method);
+    auto method_part = meta_writer.to_array();
+
     std::vector<uint8_t> combined_payload;
-    combined_payload.reserve(method.size() + request.size());
-    combined_payload.insert(combined_payload.end(), method.begin(), method.end());
+    combined_payload.reserve(method_part.size() + request.size());
+    combined_payload.insert(combined_payload.end(), method_part.begin(), method_part.end());
     combined_payload.insert(combined_payload.end(), request.begin(), request.end());
 
-    // Send combined payload length and data (C# compatible format)
+    // Send combined payload length and data
     uint32_t payload_length = static_cast<uint32_t>(combined_payload.size());
     send(sock, reinterpret_cast<const char*>(&payload_length), sizeof(payload_length), 0);
     send(sock, reinterpret_cast<const char*>(combined_payload.data()), static_cast<int>(combined_payload.size()), 0);
@@ -271,13 +278,17 @@ std::vector<uint8_t> TcpRpcClientAsync::make_rpc_call(const std::string& method,
 
     SOCKET sock = reinterpret_cast<SOCKET>(socket_);
 
-    // Create combined payload: method_name + serialized_request (aligned with C#)
+    // Build payload: WriteString(method) + pre-serialized request (starts with handler hash_code)
+    StreamWriter meta_writer;
+    meta_writer.write_string(method);
+    auto method_part = meta_writer.to_array();
+
     std::vector<uint8_t> combined_payload;
-    combined_payload.reserve(method.size() + request.size());
-    combined_payload.insert(combined_payload.end(), method.begin(), method.end());
+    combined_payload.reserve(method_part.size() + request.size());
+    combined_payload.insert(combined_payload.end(), method_part.begin(), method_part.end());
     combined_payload.insert(combined_payload.end(), request.begin(), request.end());
 
-    // Send combined payload length and data (C# compatible format)
+    // Send combined payload length and data
     uint32_t payload_length = static_cast<uint32_t>(combined_payload.size());
     send(sock, reinterpret_cast<const char*>(&payload_length), sizeof(payload_length), 0);
     send(sock, reinterpret_cast<const char*>(combined_payload.data()), static_cast<int>(combined_payload.size()), 0);
@@ -464,9 +475,15 @@ bool TcpStreamResponseWriter::write(const void* item) {
     }
 
     try {
-        // Serialize the item
+        // Serialize the item: write handler hash_code then payload to align with C# ReadObject
         StreamWriter writer;
-        serializer_.serialize(item, writer);
+        auto handler = serializer_.get_handler_by_hash_code(response_type_hash_);
+        if (!handler) {
+            mark_error("No type handler found for response type hash_code");
+            return false;
+        }
+        writer.write_int32(static_cast<int32_t>(handler->hash_code()));
+        handler->write(item, writer);
         auto data = writer.to_array();
 
         // Write the frame
@@ -522,8 +539,8 @@ bool TcpStreamResponseWriter::write_frame(const std::vector<uint8_t>& data) {
     // Write frame data in chunks if necessary
     size_t total_sent = 0;
     while (total_sent < data.size()) {
-		size_t remaining = data.size() - total_sent;
-		int chunk_size = remaining < 8192 ? static_cast<int>(remaining) : 8192;
+        size_t remaining = data.size() - total_sent;
+        int chunk_size = remaining < 8192 ? static_cast<int>(remaining) : 8192;
         bytes_sent = send(sock, reinterpret_cast<const char*>(data.data() + total_sent), chunk_size, 0);
         if (bytes_sent <= 0) {
             mark_error("Failed to send frame data: connection may be broken");

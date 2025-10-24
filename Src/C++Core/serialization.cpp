@@ -37,14 +37,14 @@ namespace bitrpc {
 
     TypeHandler* BufferSerializer::get_handler_by_hash_code(int hash_code) const {
         std::lock_guard<std::mutex> lock(handlers_mutex_);
-        auto it = handlers_by_hash_code_.find(hash_code);
-        return (it != handlers_by_hash_code_.end()) ? it->second.get() : nullptr;
+        auto it = handlers_.find(hash_code);
+        return (it != handlers_.end()) ? it->second.get() : nullptr;
     }
 
     void BufferSerializer::register_handler_impl(size_t type_hash, std::shared_ptr<TypeHandler> handler) {
         std::lock_guard<std::mutex> lock(handlers_mutex_);
         handlers_[type_hash] = handler;
-        handlers_by_hash_code_[handler->hash_code()] = handler;
+        handlers_[handler->hash_code()] = handler;
     }
 
     void BufferSerializer::init_handlers() {
@@ -333,8 +333,13 @@ namespace bitrpc {
     }
 
     void StreamWriter::write_object(const void* obj, size_t type_hash) {
-		write_int32(static_cast<int32_t>(type_hash));
-        BufferSerializer::instance().serialize_impl(obj, *this, type_hash);
+        // Write stable handler hash_code (int32) first, then payload
+        auto* handler = BufferSerializer::instance().get_handler(type_hash);
+        if (!handler) {
+            throw std::runtime_error("No TypeHandler registered for provided type_hash");
+        }
+        write_int32(static_cast<int32_t>(handler->hash_code()));
+        handler->write(obj, *this);
     }
 
     std::vector<uint8_t> StreamWriter::to_array() const {
@@ -425,15 +430,15 @@ namespace bitrpc {
     }
 
     void* StreamReader::read_object() {
-        if (available_data() < sizeof(uint32_t)) {
-            throw std::runtime_error("Not enough data to read type hash");
+        if (available_data() < sizeof(int32_t)) {
+            throw std::runtime_error("Not enough data to read handler hash_code");
         }
 
-        uint32_t type_hash = read_uint32();
+        int32_t hash_code = read_int32();
 
-        auto* handler = BufferSerializer::instance().get_handler(type_hash);
+        auto* handler = BufferSerializer::instance().get_handler_by_hash_code(hash_code);
         if (!handler) {
-            throw std::runtime_error("No TypeHandler registered for type hash: " + std::to_string(type_hash));
+            throw std::runtime_error("No TypeHandler registered for hash_code: " + std::to_string(hash_code));
         }
 
         return handler->read(*this);
