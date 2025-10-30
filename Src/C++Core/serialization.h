@@ -187,8 +187,7 @@ namespace bitrpc {
 
         // Enhanced vector reading with custom deserializers
         template<typename T>
-        std::vector<T> read_vector_typed(std::function<T(StreamReader&)>
-            read_func) {
+        std::vector<T> read_vector_typed(std::function<T(StreamReader&)> read_func) {
             int32_t size = read_int32();
             std::vector<T> result;
             result.reserve(size);
@@ -323,8 +322,8 @@ namespace bitrpc {
 
     private:
         BufferSerializer() = default;
-        // Unified map: store handlers by both typeid(T).hash_code() and handler->hash_code()
         std::unordered_map<size_t, std::shared_ptr<TypeHandler>> handlers_;
+        std::unordered_map<int, std::shared_ptr<TypeHandler>> handlers_by_hash_code_;
         mutable std::mutex handlers_mutex_;
     };
 

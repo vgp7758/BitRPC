@@ -64,6 +64,11 @@ bool BaseService::has_method(const std::string& method_name) const {
            async_methods_.find(method_name) != async_methods_.end();
 }
 
+bool BaseService::has_stream_method(const std::string& method_name) const {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    return stream_methods_.find(method_name) != stream_methods_.end();
+}
+
 void* BaseService::call_method(const std::string& method_name, void* request) {
     std::lock_guard<std::mutex> lock(methods_mutex_);
     auto it = methods_.find(method_name);
@@ -80,6 +85,17 @@ std::future<void*> BaseService::call_method_async(const std::string& method_name
         return it->second(request);
     }
     throw std::runtime_error("Async method not found: " + method_name);
+}
+
+std::shared_ptr<StreamResponseReader> BaseService::call_stream_method(const std::string& method_name,
+                                                                     const std::vector<uint8_t>& request_bytes) {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    auto it = stream_methods_.find(method_name);
+    if (it != stream_methods_.end()) {
+        // We pass bytes pointer to registered wrapper which deserializes
+        return it->second(const_cast<void*>(static_cast<const void*>(&request_bytes)));
+    }
+    throw std::runtime_error("Stream method not found: " + method_name);
 }
 
 TcpRpcServer::TcpRpcServer()
@@ -216,66 +232,135 @@ void TcpRpcServer::accept_connections() {
     }
 }
 
+static bool recv_all_helper(SOCKET sock, char* buf, size_t len) {
+    size_t off = 0;
+    while (off < len) {
+        int r = recv(sock, buf + off, static_cast<int>(len - off), 0);
+        if (r <= 0) return false;
+        off += r;
+    }
+    return true;
+}
+
+static bool is_printable_ascii(const uint8_t* data, size_t len) {
+    for (size_t i = 0; i < len; ++i) {
+        uint8_t c = data[i];
+        if (c < 32 || c > 126) return false;
+    }
+    return true;
+}
+
 void TcpRpcServer::handle_client(void* client_socket) {
     SOCKET sock = reinterpret_cast<SOCKET>(client_socket);
 
     try {
         while (is_running_) {
-            // Receive method name length
-            uint32_t method_length = 0;
-            int bytes_received = recv(sock, reinterpret_cast<char*>(&method_length), sizeof(method_length), 0);
-            if (bytes_received != sizeof(method_length)) break;
+            // Payload: either [payload_len][method_len][method][request]
+            // or [payload_len][method (ASCII)][request]
+            uint32_t payload_length = 0;
+            if (!recv_all_helper(sock, reinterpret_cast<char*>(&payload_length), sizeof(payload_length))) break;
+            if (payload_length == 0) continue;
 
-            // Receive method name
-            std::vector<char> method_buffer(method_length + 1);
-            bytes_received = recv(sock, method_buffer.data(), method_length, 0);
-            if (bytes_received != method_length) break;
-            method_buffer[method_length] = '\0';
-            std::string method_name(method_buffer.data());
+            std::vector<uint8_t> payload(payload_length);
+            if (!recv_all_helper(sock, reinterpret_cast<char*>(payload.data()), payload.size())) break;
 
-            // Receive request length
-            uint32_t request_length = 0;
-            bytes_received = recv(sock, reinterpret_cast<char*>(&request_length), sizeof(request_length), 0);
-            if (bytes_received != sizeof(request_length)) break;
+            std::string method_name;
+            std::vector<uint8_t> request_bytes;
 
-            // Receive request data
-            std::vector<uint8_t> request_data(request_length);
-            bytes_received = recv(sock, reinterpret_cast<char*>(request_data.data()), request_length, 0);
-            if (bytes_received != request_length) break;
+            // Try format A: explicit method length prefix inside payload
+            if (payload.size() >= 4) {
+                uint32_t mlen = *reinterpret_cast<const uint32_t*>(payload.data());
+                if (mlen > 0 && 4 + mlen <= payload.size() && is_printable_ascii(payload.data() + 4, mlen)) {
+                    method_name.assign(reinterpret_cast<const char*>(payload.data() + 4), mlen);
+                    request_bytes.assign(payload.begin() + 4 + mlen, payload.end());
+                }
+            }
 
-            // Parse method name and call service
+            // Fallback format B: ASCII prefix until first non-printable
+            if (method_name.empty()) {
+                size_t i = 0;
+                while (i < payload.size()) {
+                    unsigned char c = payload[i];
+                    if (c < 32 || c > 126) break;
+                    ++i;
+                }
+                method_name.assign(reinterpret_cast<const char*>(payload.data()), i);
+                request_bytes.assign(payload.begin() + i, payload.end());
+            }
+
             auto method_pair = parse_method_name(method_name);
-			auto& service_name = method_pair.first;
-			auto& method = method_pair.second;
+            auto& service_name = method_pair.first;
+            auto& method = method_pair.second;
             auto service = service_manager_->get_service(service_name);
 
             if (!service) {
                 std::cerr << "Service not found: " << service_name << std::endl;
+                // Respond with empty
+                uint32_t response_length = 0;
+                send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
                 continue;
             }
 
             try {
-                // Create a buffer that contains the request length + data
-                std::vector<uint8_t> request_buffer(sizeof(uint32_t) + request_data.size());
-                *reinterpret_cast<uint32_t*>(request_buffer.data()) = static_cast<uint32_t>(request_data.size());
-                std::copy(request_data.begin(), request_data.end(), request_buffer.data() + sizeof(uint32_t));
+                if (service->has_stream_method(method)) {
+                    // Handle streaming using the service-provided StreamResponseReader
+                    auto reader = service->call_stream_method(method, request_bytes);
+                    if (!reader) {
+                        uint32_t zero = 0; // end-of-stream
+                        send(sock, reinterpret_cast<const char*>(&zero), sizeof(zero), 0);
+                        continue;
+                    }
 
-                // Call the service method with the prepared buffer
-                void* response = service->call_method(method, request_buffer.data());
+                    while (reader->has_more()) {
+                        auto frame = reader->read_next();
+                        uint32_t flen = static_cast<uint32_t>(frame.size());
+                        // write frame
+                        send(sock, reinterpret_cast<const char*>(&flen), sizeof(flen), 0);
+                        if (flen) {
+                            size_t off = 0; while (off < frame.size()) {
+                                int s = send(sock, reinterpret_cast<const char*>(frame.data() + off),
+                                              static_cast<int>(frame.size() - off), 0);
+                                if (s <= 0) { break; }
+                                off += s;
+                            }
+                        }
+                        if (flen == 0) break; // end marker by reader
+                    }
+                    // Explicit end marker (0) to align with client
+                    uint32_t zero = 0; send(sock, reinterpret_cast<const char*>(&zero), sizeof(zero), 0);
+                    continue;
+                }
 
-                // Send response
-                if (response) {
-                    auto response_vector = static_cast<std::vector<uint8_t>*>(response);
+                if (service->has_method(method)) {
+                    // Synchronous method wrapper (already serializes response with type hash)
+                    void* response = service->call_method(method, static_cast<void*>(&request_bytes));
+
+                    if (response) {
+                        auto response_vector = static_cast<std::vector<uint8_t>*>(response);
+                        uint32_t response_length = static_cast<uint32_t>(response_vector->size());
+                        send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
+                        if (response_length > 0) {
+                            send(sock, reinterpret_cast<const char*>(response_vector->data()), response_length, 0);
+                        }
+                        delete response_vector;
+                    } else {
+                        uint32_t response_length = 0;
+                        send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
+                    }
+                    continue;
+                }
+
+                // Async method
+                void* dummy = static_cast<void*>(&request_bytes);
+                auto future_response = service->call_method_async(method, dummy);
+                auto response_ptr = future_response.get();
+                if (response_ptr) {
+                    auto response_vector = static_cast<std::vector<uint8_t>*>(response_ptr);
                     uint32_t response_length = static_cast<uint32_t>(response_vector->size());
-
-                    // Send length
                     send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
-
-                    // Send data if any
                     if (response_length > 0) {
                         send(sock, reinterpret_cast<const char*>(response_vector->data()), response_length, 0);
                     }
-
                     delete response_vector;
                 } else {
                     uint32_t response_length = 0;

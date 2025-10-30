@@ -51,6 +51,11 @@ public:
     virtual void* call_method(const std::string& method_name, void* request);
     virtual std::future<void*> call_method_async(const std::string& method_name, void* request);
 
+    // Streaming support
+    virtual bool has_stream_method(const std::string& method_name) const;
+    virtual std::shared_ptr<StreamResponseReader> call_stream_method(const std::string& method_name,
+                                                                     const std::vector<uint8_t>& request_bytes);
+
 protected:
     template<typename TRequest, typename TResponse>
     void register_method(const std::string& method_name, ServiceMethod<TRequest, TResponse> method);
@@ -117,11 +122,26 @@ private:
 
 
 // Template implementations
+// Requests arrive as raw bytes (without type hash). We deserialize here and serialize responses
+// with type hash using StreamWriter::write_object for client compatibility.
 template<typename TRequest, typename TResponse>
 void BaseService::register_method(const std::string& method_name, ServiceMethod<TRequest, TResponse> method) {
     std::lock_guard<std::mutex> lock(methods_mutex_);
     methods_[method_name] = [method](void* request) -> void* {
-        return method(static_cast<const TRequest*>(request));
+        // request is std::vector<uint8_t>*
+        auto req_bytes = static_cast<const std::vector<uint8_t>*>(request);
+        StreamReader reader(*req_bytes);
+        auto* handler = BufferSerializer::instance().get_handler(typeid(TRequest).hash_code());
+        if (!handler) {
+            throw std::runtime_error("No serializer for request type");
+        }
+        std::unique_ptr<TRequest> req(static_cast<TRequest*>(handler->read(reader)));
+        // Invoke user method
+        std::unique_ptr<TResponse> resp_ptr(method(req.get()));
+        // Serialize with type hash
+        StreamWriter writer;
+        writer.write_object(resp_ptr.get(), typeid(TResponse).hash_code());
+        return new std::vector<uint8_t>(writer.to_array());
     };
 }
 
@@ -131,12 +151,20 @@ void BaseService::register_async_method(const std::string& method_name,
     std::lock_guard<std::mutex> lock(methods_mutex_);
 
     async_methods_[method_name] = [method](void* request) -> std::future<void*> {
-        auto typed_request = static_cast<const TRequest*>(request);
-        auto future_result = method(*typed_request);
+        auto req_bytes = static_cast<const std::vector<uint8_t>*>(request);
+        StreamReader reader(*req_bytes);
+        auto* handler = BufferSerializer::instance().get_handler(typeid(TRequest).hash_code());
+        if (!handler) {
+            throw std::runtime_error("No serializer for request type");
+        }
+        std::unique_ptr<TRequest> req(static_cast<TRequest*>(handler->read(reader)));
 
+        auto future_result = method(*req);
         return std::async(std::launch::async, [future_result = std::move(future_result)]() mutable -> void* {
-            auto result = future_result.get();
-            return new TResponse(std::move(result));
+            auto result = future_result.get(); // by value
+            StreamWriter writer;
+            writer.write_object(&result, typeid(TResponse).hash_code());
+            return new std::vector<uint8_t>(writer.to_array());
         });
     };
 }
@@ -147,8 +175,14 @@ void BaseService::register_stream_method(const std::string& method_name,
     std::lock_guard<std::mutex> lock(methods_mutex_);
 
     stream_methods_[method_name] = [method](void* request) -> std::shared_ptr<StreamResponseReader> {
-        auto typed_request = static_cast<const TRequest*>(request);
-        return method(*typed_request);
+        auto req_bytes = static_cast<const std::vector<uint8_t>*>(request);
+        StreamReader reader(*req_bytes);
+        auto* handler = BufferSerializer::instance().get_handler(typeid(TRequest).hash_code());
+        if (!handler) {
+            throw std::runtime_error("No serializer for request type");
+        }
+        std::unique_ptr<TRequest> req(static_cast<TRequest*>(handler->read(reader)));
+        return method(*req);
     };
 }
 
