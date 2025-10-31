@@ -79,8 +79,8 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             sb.AppendLine("#include <vector>");
             sb.AppendLine("#include <string>");
-            //sb.AppendLine("#include <optional>");
             sb.AppendLine("#include <chrono>");
+            sb.AppendLine("#include \"../runtime/serialization.h\"");
             sb.AppendLine();
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
@@ -527,6 +527,7 @@ namespace BitRPC.Protocol.Generator
 
             var runtimeInclude = GetRuntimeInclude(options);
             sb.AppendLine($"#include \"../runtime/server.h\"");
+            sb.AppendLine($"#include \"../runtime/serialization.h\"");
             sb.AppendLine($"#include \"./models.h\"");
             sb.AppendLine($"#include \"./i{service.Name.ToLower()}_service.h\"");
             sb.AppendLine();
@@ -534,6 +535,28 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
+
+            // For each streaming method, generate a dedicated StreamResponseReaderBase that serializes frames
+            foreach (var method in service.Methods.Where(m => m.ResponseStream))
+            {
+                var readerBaseName = $"{method.Name}StreamResponseReaderBase";
+                sb.AppendLine($"class {readerBaseName} : public StreamResponseReader {{");
+                sb.AppendLine("public:");
+                sb.AppendLine($"    virtual ~{readerBaseName}() = default;");
+                sb.AppendLine($"    virtual bool read_typed_frame({method.ResponseType}& out) = 0;");
+                sb.AppendLine();
+                sb.AppendLine("    std::vector<uint8_t> read_next() override;");
+                sb.AppendLine("    bool has_more() const override { return !closed_; }");
+                sb.AppendLine("    void close() override { closed_ = true; }");
+                sb.AppendLine("    bool has_error() const override { return error_; }");
+                sb.AppendLine("    std::string get_error_message() const override { return error_message_; }");
+                sb.AppendLine("protected:");
+                sb.AppendLine("    bool closed_ = false;");
+                sb.AppendLine("    bool error_ = false;");
+                sb.AppendLine("    std::string error_message_;");
+                sb.AppendLine("};");
+                sb.AppendLine();
+            }
 
             sb.AppendLine($"class {service.Name}ServiceBase : public BaseService, public I{service.Name}Service {{");
             sb.AppendLine("public:");
@@ -560,7 +583,11 @@ namespace BitRPC.Protocol.Generator
             {
                 if (method.ResponseStream)
                 {
-                    sb.AppendLine($"    virtual std::shared_ptr<StreamResponseReader> {method.Name}StreamAsync_impl(const {method.RequestType}& request) = 0;");
+                    var readerBaseName = $"{method.Name}StreamResponseReaderBase";
+                    // New virtual to return typed reader
+                    sb.AppendLine($"    virtual std::shared_ptr<{readerBaseName}> {method.Name}Stream_impl(const {method.RequestType}& request) = 0;");
+                    // Keep original _impl, but implement to call the typed one
+                    sb.AppendLine($"    virtual std::shared_ptr<StreamResponseReader> {method.Name}StreamAsync_impl(const {method.RequestType}& request);");
                 }
                 else
                 {
@@ -592,6 +619,23 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("namespace bitrpc {");
             sb.AppendLine($"namespace {GetCppNamespace(options.Namespace)} {{");
             sb.AppendLine();
+
+            // Implement each generated StreamResponseReaderBase::read_next
+            foreach (var method in service.Methods.Where(m => m.ResponseStream))
+            {
+                var readerBaseName = $"{method.Name}StreamResponseReaderBase";
+                var responseType = method.ResponseType;
+                sb.AppendLine($"std::vector<uint8_t> {readerBaseName}::read_next() {{");
+                sb.AppendLine("    if (closed_ || error_) return {}; ");
+                sb.AppendLine($"    {responseType} frame;\n    if (!read_typed_frame(frame)) {{\n        closed_ = true;\n        return {{}};\n    }}");
+                sb.AppendLine("    StreamWriter writer;");
+                // Serialize using write_object with typeid hash (registered in registry)
+                sb.AppendLine($"    writer.write_object(&frame, typeid({responseType}).hash_code());");
+                sb.AppendLine("    return writer.to_array();");
+                sb.AppendLine("}");
+                sb.AppendLine();
+            }
+
             sb.AppendLine($"{service.Name}ServiceBase::{service.Name}ServiceBase() : BaseService(\"{service.Name}\") {{");
             sb.AppendLine("    register_methods();");
             sb.AppendLine("}");
@@ -626,6 +670,13 @@ namespace BitRPC.Protocol.Generator
                 {
                     sb.AppendLine($"std::shared_ptr<StreamResponseReader> {service.Name}ServiceBase::{method.Name}StreamAsync(const {method.RequestType}& request) {{");
                     sb.AppendLine($"    return {method.Name}StreamAsync_impl(request);");
+                    sb.AppendLine("}");
+                    sb.AppendLine();
+
+                    // implement _impl by delegating to typed version
+                    var readerBaseName = $"{method.Name}StreamResponseReaderBase";
+                    sb.AppendLine($"std::shared_ptr<StreamResponseReader> {service.Name}ServiceBase::{method.Name}StreamAsync_impl(const {method.RequestType}& request) {{");
+                    sb.AppendLine($"    return {method.Name}Stream_impl(request);");
                     sb.AppendLine("}");
                     sb.AppendLine();
                 }
