@@ -48,6 +48,7 @@ public:
 
     std::string service_name() const { return name_; }
     virtual bool has_method(const std::string& method_name) const;
+    virtual bool has_async_method(const std::string& method_name) const;
     virtual void* call_method(const std::string& method_name, void* request);
     virtual std::future<void*> call_method_async(const std::string& method_name, void* request);
 

@@ -60,8 +60,12 @@ BaseService::BaseService(const std::string& name) : name_(name) {}
 
 bool BaseService::has_method(const std::string& method_name) const {
     std::lock_guard<std::mutex> lock(methods_mutex_);
-    return methods_.find(method_name) != methods_.end() ||
-           async_methods_.find(method_name) != async_methods_.end();
+    return methods_.find(method_name) != methods_.end();
+}
+
+bool BaseService::has_async_method(const std::string& method_name) const {
+    std::lock_guard<std::mutex> lock(methods_mutex_);
+    return async_methods_.find(method_name) != async_methods_.end();
 }
 
 bool BaseService::has_stream_method(const std::string& method_name) const {
@@ -350,21 +354,24 @@ void TcpRpcServer::handle_client(void* client_socket) {
                     continue;
                 }
 
-                // Async method
-                void* dummy = static_cast<void*>(&request_bytes);
-                auto future_response = service->call_method_async(method, dummy);
-                auto response_ptr = future_response.get();
-                if (response_ptr) {
-                    auto response_vector = static_cast<std::vector<uint8_t>*>(response_ptr);
-                    uint32_t response_length = static_cast<uint32_t>(response_vector->size());
-                    send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
-                    if (response_length > 0) {
-                        send(sock, reinterpret_cast<const char*>(response_vector->data()), response_length, 0);
+                if (service->has_async_method(method)) {
+                    // Async method
+                    void* dummy = static_cast<void*>(&request_bytes);
+                    auto future_response = service->call_method_async(method, dummy);
+                    auto response_ptr = future_response.get();
+                    if (response_ptr) {
+                        auto response_vector = static_cast<std::vector<uint8_t>*>(response_ptr);
+                        uint32_t response_length = static_cast<uint32_t>(response_vector->size());
+                        send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
+                        if (response_length > 0) {
+                            send(sock, reinterpret_cast<const char*>(response_vector->data()), response_length, 0);
+                        }
+                        delete response_vector;
+                    } else {
+                        uint32_t response_length = 0;
+                        send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
                     }
-                    delete response_vector;
-                } else {
-                    uint32_t response_length = 0;
-                    send(sock, reinterpret_cast<const char*>(&response_length), sizeof(response_length), 0);
+                    continue;
                 }
             } catch (const std::exception& e) {
                 std::cerr << "Error handling RPC call: " << e.what() << std::endl;
