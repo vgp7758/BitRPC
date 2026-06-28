@@ -15,10 +15,10 @@ namespace BitRPC.Protocol.Generator
     public class GenerationOptions
     {
         public TargetLanguage Language { get; set; }
-#pragma warning disable CS8618 // ÔÚÍË³ö¹¹Ôìº¯ÊýÊ±£¬²»¿ÉÎª null µÄ×Ö¶Î±ØÐë°üº¬·Ç null Öµ¡£Çë¿¼ÂÇÌí¼Ó "required" ÐÞÊÎ·û»òÉùÃ÷Îª¿ÉÎª null¡£
+#pragma warning disable CS8618 // ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ìº¯ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª null ï¿½ï¿½ï¿½Ö¶Î±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ null Öµï¿½ï¿½ï¿½ë¿¼ï¿½ï¿½ï¿½ï¿½ï¿½ "required" ï¿½ï¿½ï¿½Î·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Îª nullï¿½ï¿½
         public string OutputDirectory { get; set; }
         public string Namespace { get; set; }
-#pragma warning restore CS8618 // ÔÚÍË³ö¹¹Ôìº¯ÊýÊ±£¬²»¿ÉÎª null µÄ×Ö¶Î±ØÐë°üº¬·Ç null Öµ¡£Çë¿¼ÂÇÌí¼Ó "required" ÐÞÊÎ·û»òÉùÃ÷Îª¿ÉÎª null¡£
+#pragma warning restore CS8618 // ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ìº¯ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª null ï¿½ï¿½ï¿½Ö¶Î±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ null Öµï¿½ï¿½ï¿½ë¿¼ï¿½ï¿½ï¿½ï¿½ï¿½ "required" ï¿½ï¿½ï¿½Î·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Îª nullï¿½ï¿½
         public bool GenerateSerialization { get; set; } = true;
         public bool GenerateClientServer { get; set; } = true;
         public bool GenerateFactories { get; set; } = true;
@@ -58,9 +58,9 @@ namespace BitRPC.Protocol.Generator
         protected string GetOutputPath(GenerationOptions options, params string[] subPaths)
         {
             var path = Path.Combine(options.OutputDirectory, Path.Combine(subPaths));
-#pragma warning disable CS8604 // ÒýÓÃÀàÐÍ²ÎÊý¿ÉÄÜÎª null¡£
+#pragma warning disable CS8604 // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª nullï¿½ï¿½
             EnsureDirectoryExists(Path.GetDirectoryName(path));
-#pragma warning restore CS8604 // ÒýÓÃÀàÐÍ²ÎÊý¿ÉÄÜÎª null¡£
+#pragma warning restore CS8604 // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª nullï¿½ï¿½
             return path;
         }
 
