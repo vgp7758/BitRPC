@@ -55,6 +55,31 @@ namespace BitRPC.Protocol.Generator
             }
         }
 
+        /// <summary>
+        /// Writes content to a file, clearing any read-only attribute on an existing file first.
+        /// Version-control systems (Perforce, Plastic SCM, SVN, ...) mark files read-only until
+        /// they are checked out; a plain File.WriteAllText then throws
+        /// "Access to the path '...' is denied" when regenerating into a managed tree
+        /// (e.g. a Unity Assets folder).
+        /// </summary>
+        protected void WriteFile(string path, string content)
+        {
+            EnsureDirectoryExists(Path.GetDirectoryName(path) ?? string.Empty);
+            ClearReadOnlyIfExists(path);
+            File.WriteAllText(path, content);
+        }
+
+        private static void ClearReadOnlyIfExists(string path)
+        {
+            if (!File.Exists(path)) return;
+
+            var attrs = File.GetAttributes(path);
+            if ((attrs & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+            {
+                File.SetAttributes(path, attrs & ~FileAttributes.ReadOnly);
+            }
+        }
+
         protected string GetOutputPath(GenerationOptions options, params string[] subPaths)
         {
             var path = Path.Combine(options.OutputDirectory, Path.Combine(subPaths));

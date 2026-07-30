@@ -52,7 +52,7 @@ namespace BitRPC.Protocol.Generator
 
             var filePath = Path.Combine(dataDir, "models.py");
             var content = GenerateModelsModule(definition, options);
-            File.WriteAllText(filePath, content);
+            WriteFile(filePath, content);
         }
 
         private string GenerateModelsModule(ProtocolDefinition definition, GenerationOptions options)
@@ -104,7 +104,7 @@ namespace BitRPC.Protocol.Generator
             {
                 var filePath = Path.Combine(serializationDir, $"{message.Name.ToLower()}_serializer.py");
                 var content = GenerateMessageSerializer(message, options);
-                File.WriteAllText(filePath, content);
+                WriteFile(filePath, content);
             }
 
             GenerateSerializerRegistry(definition, options, serializationDir);
@@ -222,7 +222,7 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine($"    serializer.register_handler({message.Name}, {message.Name}Serializer())");
             }
 
-            File.WriteAllText(filePath, sb.ToString());
+            WriteFile(filePath, sb.ToString());
         }
 
         private void GenerateClientCode(ProtocolDefinition definition, GenerationOptions options, string baseDir)
@@ -234,7 +234,7 @@ namespace BitRPC.Protocol.Generator
             {
                 var filePath = Path.Combine(clientDir, $"{service.Name.ToLower()}_client.py");
                 var content = GenerateServiceClient(service, options);
-                File.WriteAllText(filePath, content);
+                WriteFile(filePath, content);
             }
         }
 
@@ -283,11 +283,11 @@ namespace BitRPC.Protocol.Generator
             {
                 var filePath = Path.Combine(serverDir, $"i{service.Name.ToLower()}_service.py");
                 var content = GenerateServiceInterface(service, options);
-                File.WriteAllText(filePath, content);
+                WriteFile(filePath, content);
 
                 var implFilePath = Path.Combine(serverDir, $"{service.Name.ToLower()}_service_base.py");
                 var implContent = GenerateServiceBase(service, options);
-                File.WriteAllText(implFilePath, implContent);
+                WriteFile(implFilePath, implContent);
             }
         }
 
@@ -365,7 +365,7 @@ namespace BitRPC.Protocol.Generator
 
             var filePath = Path.Combine(factoryDir, "protocol_factory.py");
             var content = GenerateProtocolFactory(definition, options);
-            File.WriteAllText(filePath, content);
+            WriteFile(filePath, content);
         }
 
         private string GenerateProtocolFactory(ProtocolDefinition definition, GenerationOptions options)
@@ -403,7 +403,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine();
             sb.AppendLine("__all__ = ['ProtocolFactory']");
 
-            File.WriteAllText(filePath, sb.ToString());
+            WriteFile(filePath, sb.ToString());
         }
 
         private string GetPythonType(ProtocolField field)

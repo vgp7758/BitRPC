@@ -67,8 +67,8 @@ namespace BitRPC.Protocol.Generator
             var headerContent = GenerateModelsHeader(definition, options);
             var sourceContent = GenerateModelsSource(definition, options);
 
-            File.WriteAllText(headerPath, headerContent);
-            File.WriteAllText(sourcePath, sourceContent);
+            WriteFile(headerPath, headerContent);
+            WriteFile(sourcePath, sourceContent);
         }
 
         private string GenerateModelsHeader(ProtocolDefinition definition, GenerationOptions options)
@@ -161,8 +161,8 @@ namespace BitRPC.Protocol.Generator
                 var headerContent = GenerateMessageSerializerHeader(message, options);
                 var sourceContent = GenerateMessageSerializerSource(message, options);
 
-                File.WriteAllText(headerPath, headerContent);
-                File.WriteAllText(sourcePath, sourceContent);
+                WriteFile(headerPath, headerContent);
+                WriteFile(sourcePath, sourceContent);
             }
 
             GenerateSerializerRegistry(definition, options, includeDir, sourceDir);
@@ -300,8 +300,8 @@ namespace BitRPC.Protocol.Generator
             var headerContent = GenerateSerializerRegistryHeader(definition, options);
             var sourceContent = GenerateSerializerRegistrySource(definition, options);
 
-            File.WriteAllText(headerPath, headerContent);
-            File.WriteAllText(sourcePath, sourceContent);
+            WriteFile(headerPath, headerContent);
+            WriteFile(sourcePath, sourceContent);
         }
 
         private string GenerateSerializerRegistryHeader(ProtocolDefinition definition, GenerationOptions options)
@@ -373,8 +373,8 @@ namespace BitRPC.Protocol.Generator
                 var headerContent = GenerateServiceClientHeader(service, options);
                 var sourceContent = GenerateServiceClientSource(service, options);
 
-                File.WriteAllText(headerPath, headerContent);
-                File.WriteAllText(sourcePath, sourceContent);
+                WriteFile(headerPath, headerContent);
+                WriteFile(sourcePath, sourceContent);
             }
         }
 
@@ -477,9 +477,9 @@ namespace BitRPC.Protocol.Generator
                 var baseContent = GenerateServiceBase(service, options);
                 var baseSourceContent = GenerateServiceBaseSource(service, options);
 
-                File.WriteAllText(interfacePath, interfaceContent);
-                File.WriteAllText(basePath, baseContent);
-                File.WriteAllText(baseSourcePath, baseSourceContent);
+                WriteFile(interfacePath, interfaceContent);
+                WriteFile(basePath, baseContent);
+                WriteFile(baseSourcePath, baseSourceContent);
             }
         }
 
@@ -711,8 +711,8 @@ namespace BitRPC.Protocol.Generator
             var headerContent = GenerateProtocolFactory(definition, options);
             var sourceContent = GenerateProtocolFactorySource(definition, options);
             
-            File.WriteAllText(headerPath, headerContent);
-            File.WriteAllText(sourcePath, sourceContent);
+            WriteFile(headerPath, headerContent);
+            WriteFile(sourcePath, sourceContent);
         }
 
         private string GenerateProtocolFactory(ProtocolDefinition definition, GenerationOptions options)
@@ -800,7 +800,7 @@ namespace BitRPC.Protocol.Generator
             sb.AppendLine("    bitrpc");
             sb.AppendLine(")");
 
-            File.WriteAllText(filePath, sb.ToString());
+            WriteFile(filePath, sb.ToString());
         }
 
         private string GetCppNamespace(string ns)

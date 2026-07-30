@@ -1,4 +1,4 @@
-#pragma warning disable CS8603 // ½âÒýÓÃ¿ÉÄÜ³öÏÖ¿ÕÒýÓÃ¡£
+#pragma warning disable CS8603 // ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ü³ï¿½ï¿½Ö¿ï¿½ï¿½ï¿½ï¿½Ã¡ï¿½
 using System.Text.Json;
 using BitRPC.Protocol.Generator;
 
@@ -58,13 +58,13 @@ namespace BitRPC.GeneratorApp
                 // Normalize any JsonElement inside SpecificOptions to native CLR types (string/int/bool/dict/list)
                 NormalizeSpecificOptions(config);
 
-#pragma warning disable CS8602 // ½âÒýÓÃ¿ÉÄÜ³öÏÖ¿ÕÒýÓÃ¡£
+#pragma warning disable CS8602 // ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ü³ï¿½ï¿½Ö¿ï¿½ï¿½ï¿½ï¿½Ã¡ï¿½
                 if (!File.Exists(config.ProtocolFile))
                 {
                     Console.WriteLine($"Error: Protocol file '{config.ProtocolFile}' not found.");
                     return;
                 }
-#pragma warning restore CS8602 // ½âÒýÓÃ¿ÉÄÜ³öÏÖ¿ÕÒýÓÃ¡£
+#pragma warning restore CS8602 // ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ü³ï¿½ï¿½Ö¿ï¿½ï¿½ï¿½ï¿½Ã¡ï¿½
 
                 var generator = new ProtocolGenerator();
                 var optionsList = new List<GenerationOptions>();
@@ -273,6 +273,7 @@ namespace BitRPC.GeneratorApp
             foreach (var file in Directory.GetFiles(sourceDir))
             {
                 var destFileName = Path.Combine(destinationDir, Path.GetFileName(file));
+                EnsureFileWritable(destFileName);
                 File.Copy(file, destFileName, true);
             }
 
@@ -280,6 +281,23 @@ namespace BitRPC.GeneratorApp
             {
                 var destSubDir = Path.Combine(destinationDir, Path.GetFileName(dir));
                 CopyDirectory(dir, destSubDir);
+            }
+        }
+
+        /// <summary>
+        /// Clears the read-only attribute on an existing file so it can be overwritten.
+        /// Version-control systems (Perforce, Plastic SCM, SVN, ...) mark files read-only
+        /// until they are checked out; File.Copy/File.WriteAllText then fail with
+        /// "Access to the path '...' is denied".
+        /// </summary>
+        private static void EnsureFileWritable(string path)
+        {
+            if (!File.Exists(path)) return;
+
+            var attrs = File.GetAttributes(path);
+            if ((attrs & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+            {
+                File.SetAttributes(path, attrs & ~FileAttributes.ReadOnly);
             }
         }
 
@@ -301,4 +319,4 @@ namespace BitRPC.GeneratorApp
         }
     }
 }
-#pragma warning restore CS8603 // ½âÒýÓÃ¿ÉÄÜ³öÏÖ¿ÕÒýÓÃ¡£
+#pragma warning restore CS8603 // ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ü³ï¿½ï¿½Ö¿ï¿½ï¿½ï¿½ï¿½Ã¡ï¿½

@@ -57,7 +57,7 @@ namespace BitRPC.Protocol.Generator
             {
                 var filePath = Path.Combine(dataDir, $"{message.Name}.cs");
                 var content = GenerateMessageClass(message, options);
-                File.WriteAllText(filePath, content);
+                WriteFile(filePath, content);
             }
         }
 
@@ -81,7 +81,7 @@ namespace BitRPC.Protocol.Generator
 
             foreach (var field in message.Fields)
             {
-                sb.AppendLine($"        public {GetCSharpType(field)} {field.Name} {{ get; set; }}");
+                sb.AppendLine($"        public {GetCSharpType(field)} {field.Name};");
             }
 
             sb.AppendLine();
@@ -118,7 +118,7 @@ namespace BitRPC.Protocol.Generator
             {
                 var filePath = Path.Combine(serializationDir, $"{message.Name}Handler.cs");
                 var content = GenerateMessageSerializer(message, options);
-                File.WriteAllText(filePath, content);
+                WriteFile(filePath, content);
             }
 
             GenerateSerializerRegistry(definition, options, serializationDir);
@@ -292,7 +292,7 @@ namespace BitRPC.Protocol.Generator
                 sb.AppendLine("}");
             }
 
-            File.WriteAllText(filePath, sb.ToString());
+            WriteFile(filePath, sb.ToString());
         }
 
         private void GenerateClientCode(ProtocolDefinition definition, GenerationOptions options, string baseDir)
@@ -304,7 +304,7 @@ namespace BitRPC.Protocol.Generator
             {
                 var filePath = Path.Combine(clientDir, $"{service.Name}Client.cs");
                 var content = GenerateServiceClient(service, options);
-                File.WriteAllText(filePath, content);
+                WriteFile(filePath, content);
             }
         }
 
@@ -371,11 +371,11 @@ namespace BitRPC.Protocol.Generator
             {
                 var filePath = Path.Combine(serverDir, $"I{service.Name}Service.cs");
                 var content = GenerateServiceInterface(service, options);
-                File.WriteAllText(filePath, content);
+                WriteFile(filePath, content);
 
                 var implFilePath = Path.Combine(serverDir, $"{service.Name}ServiceBase.cs");
                 var implContent = GenerateServiceBase(service, options);
-                File.WriteAllText(implFilePath, implContent);
+                WriteFile(implFilePath, implContent);
             }
         }
 
