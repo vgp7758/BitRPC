@@ -7,6 +7,7 @@ using System.IO;
 using BitRPC.Serialization;
 using System.Collections.Generic;
 using static BitRPC.Serialization.Types;
+using BitRPC.Protocol;
 using Example.Protocol.Serialization;
 
 namespace Example.Protocol.Serialization
@@ -60,7 +61,7 @@ namespace Example.Protocol.Serialization
         }
 
         public GetUserResponseHandler(){ _instance = this; }
-        public static readonly GetUserResponseHandler _instance;
+        public static GetUserResponseHandler _instance{ get; private set; }
     }
 }
 

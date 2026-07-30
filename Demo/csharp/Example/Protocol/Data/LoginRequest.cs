@@ -10,8 +10,10 @@ namespace Example.Protocol
 {
     public partial class LoginRequest
     {
-        public string username { get; set; }
-        public string password { get; set; }
+        public readonly static LoginRequest Default = new LoginRequest();
+
+        public string username;
+        public string password;
 
         public LoginRequest()
         {

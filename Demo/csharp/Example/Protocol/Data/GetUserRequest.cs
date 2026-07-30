@@ -10,7 +10,9 @@ namespace Example.Protocol
 {
     public partial class GetUserRequest
     {
-        public long user_id { get; set; }
+        public readonly static GetUserRequest Default = new GetUserRequest();
+
+        public long user_id;
 
         public GetUserRequest()
         {

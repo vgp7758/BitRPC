@@ -10,12 +10,14 @@ namespace Example.Protocol
 {
     public partial class UserInfo
     {
-        public long user_id { get; set; }
-        public string username { get; set; }
-        public string email { get; set; }
-        public List<string> roles { get; set; }
-        public bool is_active { get; set; }
-        public DateTime created_at { get; set; }
+        public readonly static UserInfo Default = new UserInfo();
+
+        public long user_id;
+        public string username;
+        public string email;
+        public List<string> roles;
+        public bool is_active;
+        public DateTime created_at;
 
         public UserInfo()
         {

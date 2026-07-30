@@ -10,12 +10,14 @@ namespace Example.Protocol
 {
     public partial class GetUserResponse
     {
-        public UserInfo user { get; set; }
-        public bool found { get; set; }
+        public readonly static GetUserResponse Default = new GetUserResponse();
+
+        public UserInfo user;
+        public bool found;
 
         public GetUserResponse()
         {
-            user = default;
+            user = UserInfo.Default;
             found = false;
         }
     }

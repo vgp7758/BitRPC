@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include "../runtime/serialization.h"
 
 namespace bitrpc {
 namespace example::protocol {

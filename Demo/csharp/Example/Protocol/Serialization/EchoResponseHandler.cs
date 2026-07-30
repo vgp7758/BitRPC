@@ -7,6 +7,7 @@ using System.IO;
 using BitRPC.Serialization;
 using System.Collections.Generic;
 using static BitRPC.Serialization.Types;
+using BitRPC.Protocol;
 using Example.Protocol.Serialization;
 
 namespace Example.Protocol.Serialization
@@ -32,7 +33,7 @@ namespace Example.Protocol.Serialization
                 // Write field values
                 if (mask.GetBit(2, 0)) writer.WriteString(message.message);
                 if (mask.GetBit(3, 0)) writer.WriteInt64(message.timestamp);
-                if (mask.GetBit(4, 0)) writer.WriteList(writer.WriteUserInfo);
+                if (mask.GetBit(4, 0)) writer.WriteList(message.users, writer.WriteUserInfo);
                 if (mask.GetBit(5, 0)) writer.WriteString(message.server_time);
             }
             finally
@@ -66,7 +67,7 @@ namespace Example.Protocol.Serialization
         }
 
         public EchoResponseHandler(){ _instance = this; }
-        public static readonly EchoResponseHandler _instance;
+        public static EchoResponseHandler _instance{ get; private set; }
     }
 }
 

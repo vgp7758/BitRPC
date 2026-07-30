@@ -78,6 +78,8 @@ namespace BitRPC.Protocol.Generator
 
             sb.AppendLine($"    public partial class {message.Name}");
             sb.AppendLine("    {");
+            sb.AppendLine($"        public readonly static {message.Name} Default = new {message.Name}();");
+            sb.AppendLine();
 
             foreach (var field in message.Fields)
             {
@@ -515,6 +517,12 @@ namespace BitRPC.Protocol.Generator
         private string GetDefaultValue(ProtocolField field)
         {
             if (field.IsRepeated) return $"new List<{GetCSharpTypeNameForField(field)}>()";
+
+            // Protocol (message) types: initialize to the type's generated Default instance.
+            if (field.Type == FieldType.Struct && !string.IsNullOrEmpty(field.CustomType))
+            {
+                return $"{field.CustomType}.Default";
+            }
 
             return GetDefaultValueForType(field.Type);
         }

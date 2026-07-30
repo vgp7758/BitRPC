@@ -334,11 +334,10 @@ namespace BitRPC.Serialization
 
         public Vector3 ReadVector3()
         {
-            var vec = new Vector3();
-            vec.x = ReadFloat();
-            vec.y = ReadFloat();
-            vec.z = ReadFloat();
-            return vec;
+            float x = ReadFloat();
+            float y = ReadFloat();
+            float z = ReadFloat();
+            return new Vector3(x, y, z);
         }
 
         public DateTime ReadDateTime()
@@ -439,19 +438,26 @@ namespace BitRPC.Serialization
         }
     }
 
-    public partial class Vector3
+    public readonly partial struct Vector3
     {
-        public float x;
-        public float y;
-        public float z;
+        public readonly float x;
+        public readonly float y;
+        public readonly float z;
 
-        public Vector3() { }
+        public static readonly Vector3 Zero = default;
+
         public Vector3(float x, float y, float z)
         {
             this.x = x;
             this.y = y;
             this.z = z;
         }
+
+        public bool Equals(Vector3 other) => x == other.x && y == other.y && z == other.z;
+        public override bool Equals(object obj) => obj is Vector3 other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(x, y, z);
+        public static bool operator ==(Vector3 left, Vector3 right) => left.Equals(right);
+        public static bool operator !=(Vector3 left, Vector3 right) => !left.Equals(right);
     }
 
     public static partial class Types
@@ -466,7 +472,7 @@ namespace BitRPC.Serialization
         public static bool IsDefault(DateTime value) => value == default;
         public static bool IsDefault<T>(List<T> value) => value == null || value.Count == 0;
         public static bool IsDefault(object value) => value == null;
-        public static bool IsDefault(Vector3 value) => value == null || (IsDefault(value.x) && IsDefault(value.y) && IsDefault(value.z));
+        public static bool IsDefault(Vector3 value) => IsDefault(value.x) && IsDefault(value.y) && IsDefault(value.z);
     }
 
     #region Primitive Type Handlers
@@ -696,11 +702,10 @@ namespace BitRPC.Serialization
         }
         public object Read(StreamReader reader)
         {
-            var vec = new Vector3();
-            vec.x = reader.ReadFloat();
-            vec.y = reader.ReadFloat();
-            vec.z = reader.ReadFloat();
-            return vec;
+            float x = reader.ReadFloat();
+            float y = reader.ReadFloat();
+            float z = reader.ReadFloat();
+            return new Vector3(x, y, z);
         }
     }
 

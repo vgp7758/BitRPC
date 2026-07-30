@@ -10,15 +10,17 @@ namespace Example.Protocol
 {
     public partial class LoginResponse
     {
-        public bool success { get; set; }
-        public UserInfo user { get; set; }
-        public string token { get; set; }
-        public string error_message { get; set; }
+        public readonly static LoginResponse Default = new LoginResponse();
+
+        public bool success;
+        public UserInfo user;
+        public string token;
+        public string error_message;
 
         public LoginResponse()
         {
             success = false;
-            user = default;
+            user = UserInfo.Default;
             token = string.Empty;
             error_message = string.Empty;
         }

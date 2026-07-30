@@ -10,10 +10,12 @@ namespace Example.Protocol
 {
     public partial class EchoResponse
     {
-        public string message { get; set; }
-        public long timestamp { get; set; }
-        public List<UserInfo> users { get; set; }
-        public string server_time { get; set; }
+        public readonly static EchoResponse Default = new EchoResponse();
+
+        public string message;
+        public long timestamp;
+        public List<UserInfo> users;
+        public string server_time;
 
         public EchoResponse()
         {

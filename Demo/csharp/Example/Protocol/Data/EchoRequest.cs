@@ -10,8 +10,10 @@ namespace Example.Protocol
 {
     public partial class EchoRequest
     {
-        public string message { get; set; }
-        public long timestamp { get; set; }
+        public readonly static EchoRequest Default = new EchoRequest();
+
+        public string message;
+        public long timestamp;
 
         public EchoRequest()
         {

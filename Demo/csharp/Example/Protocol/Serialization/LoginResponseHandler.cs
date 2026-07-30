@@ -7,6 +7,7 @@ using System.IO;
 using BitRPC.Serialization;
 using System.Collections.Generic;
 using static BitRPC.Serialization.Types;
+using BitRPC.Protocol;
 using Example.Protocol.Serialization;
 
 namespace Example.Protocol.Serialization
@@ -66,7 +67,7 @@ namespace Example.Protocol.Serialization
         }
 
         public LoginResponseHandler(){ _instance = this; }
-        public static readonly LoginResponseHandler _instance;
+        public static LoginResponseHandler _instance{ get; private set; }
     }
 }
 

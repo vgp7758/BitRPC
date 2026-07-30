@@ -7,6 +7,7 @@ using System.IO;
 using BitRPC.Serialization;
 using System.Collections.Generic;
 using static BitRPC.Serialization.Types;
+using BitRPC.Protocol;
 using Example.Protocol.Serialization;
 
 namespace Example.Protocol.Serialization
@@ -35,7 +36,7 @@ namespace Example.Protocol.Serialization
                 if (mask.GetBit(0, 0)) writer.WriteInt64(message.user_id);
                 if (mask.GetBit(1, 0)) writer.WriteString(message.username);
                 if (mask.GetBit(2, 0)) writer.WriteString(message.email);
-                if (mask.GetBit(3, 0)) writer.WriteList(writer.WriteString);
+                if (mask.GetBit(3, 0)) writer.WriteList(message.roles, writer.WriteString);
                 if (mask.GetBit(4, 0)) writer.WriteBool(message.is_active);
                 if (mask.GetBit(5, 0)) writer.WriteDateTime(message.created_at);
             }
@@ -72,7 +73,7 @@ namespace Example.Protocol.Serialization
         }
 
         public UserInfoHandler(){ _instance = this; }
-        public static readonly UserInfoHandler _instance;
+        public static UserInfoHandler _instance{ get; private set; }
     }
 }
 

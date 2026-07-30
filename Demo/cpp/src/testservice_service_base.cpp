@@ -15,6 +15,18 @@
 namespace bitrpc {
 namespace example::protocol {
 
+std::vector<uint8_t> StreamUsersStreamResponseReaderBase::read_next() {
+    if (closed_ || error_) return {}; 
+    UserInfo frame;
+    if (!read_typed_frame(frame)) {
+        closed_ = true;
+        return {};
+    }
+    StreamWriter writer;
+    writer.write_object(&frame, typeid(UserInfo).hash_code());
+    return writer.to_array();
+}
+
 TestServiceServiceBase::TestServiceServiceBase() : BaseService("TestService") {
     register_methods();
 }
@@ -48,6 +60,10 @@ std::future<EchoResponse> TestServiceServiceBase::EchoAsync(const EchoRequest& r
 
 std::shared_ptr<StreamResponseReader> TestServiceServiceBase::StreamUsersStreamAsync(const GetUserRequest& request) {
     return StreamUsersStreamAsync_impl(request);
+}
+
+std::shared_ptr<StreamResponseReader> TestServiceServiceBase::StreamUsersStreamAsync_impl(const GetUserRequest& request) {
+    return StreamUsersStream_impl(request);
 }
 
 

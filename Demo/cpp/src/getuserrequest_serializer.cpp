@@ -27,7 +27,7 @@ void GetUserRequestSerializer::write(const void* obj, StreamWriter& writer) cons
 }
 
 void* GetUserRequestSerializer::read(StreamReader& reader) const {
-    auto obj_ptr = make_unique<GetUserRequest>();
+    std::unique_ptr<GetUserRequest> obj_ptr(new GetUserRequest());
     uint32_t mask0 = reader.read_uint32();
     if (mask0 & (1u << 0)) { obj_ptr->user_id = *static_cast<int64_t*>(Int64Handler::instance().read(reader)); }
     return obj_ptr.release();

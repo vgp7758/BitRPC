@@ -5,11 +5,28 @@
 #pragma once
 
 #include "../runtime/server.h"
+#include "../runtime/serialization.h"
 #include "./models.h"
 #include "./itestservice_service.h"
 
 namespace bitrpc {
 namespace example::protocol {
+
+class StreamUsersStreamResponseReaderBase : public StreamResponseReader {
+public:
+    virtual ~StreamUsersStreamResponseReaderBase() = default;
+    virtual bool read_typed_frame(UserInfo& out) = 0;
+
+    std::vector<uint8_t> read_next() override;
+    bool has_more() const override { return !closed_; }
+    void close() override { closed_ = true; }
+    bool has_error() const override { return error_; }
+    std::string get_error_message() const override { return error_message_; }
+protected:
+    bool closed_ = false;
+    bool error_ = false;
+    std::string error_message_;
+};
 
 class TestServiceServiceBase : public BaseService, public ITestServiceService {
 public:
@@ -24,7 +41,8 @@ protected:
     virtual std::future<LoginResponse> LoginAsync_impl(const LoginRequest& request) = 0;
     virtual std::future<GetUserResponse> GetUserAsync_impl(const GetUserRequest& request) = 0;
     virtual std::future<EchoResponse> EchoAsync_impl(const EchoRequest& request) = 0;
-    virtual std::shared_ptr<StreamResponseReader> StreamUsersStreamAsync_impl(const GetUserRequest& request) = 0;
+    virtual std::shared_ptr<StreamUsersStreamResponseReaderBase> StreamUsersStream_impl(const GetUserRequest& request) = 0;
+    virtual std::shared_ptr<StreamResponseReader> StreamUsersStreamAsync_impl(const GetUserRequest& request);
 };
 
 }} // namespace bitrpc
